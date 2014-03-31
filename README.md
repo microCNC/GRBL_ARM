@@ -11,6 +11,7 @@ It is an ARM Cortex M4F based microcontroller.
 
 Features Include :
 
+```
 80Mhz CPU
 256KB Flash
 32KB RAM
@@ -19,13 +20,16 @@ Floating Point Unit
 24 Timers
 43 GPIO Pins
 12bit ADC
-
+```
 
 I am using KEIL MDK-ARM Lite ( free version ) to develop and flash to the board
 
 ***
 TODO List.
 
+```
 EEPROM
 Stepper Timers and outputs
 Spindle PWM
+
+```
