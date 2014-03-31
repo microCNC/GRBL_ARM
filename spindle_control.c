@@ -21,23 +21,23 @@
 
 #include "system.h"
 #include "spindle_control.h"
-#include "planner.h"
+#include "protocol.h"
 
 
 void spindle_init()
 {  
-  SPINDLE_DIRECTION_DDR |= (1<<SPINDLE_DIRECTION_BIT);
-  
   // On the Uno, spindle enable and PWM are shared. Other CPUs have seperate enable pin.
   #ifdef VARIABLE_SPINDLE
     SPINDLE_PWM_DDR |= (1<<SPINDLE_PWM_BIT);
     #ifndef CPU_MAP_ATMEGA328P 
-      SPINDLE_ENABLE_PORT |= (1<<SPINDLE_ENABLE_BIT);
+      SPINDLE_ENABLE_DDR |= (1<<SPINDLE_ENABLE_BIT); // Configure as output pin.
     #endif     
   #else
-    SPINDLE_ENABLE_PORT |= (1<<SPINDLE_ENABLE_BIT);
+    SPINDLE_ENABLE_DDR |= (1<<SPINDLE_ENABLE_BIT); // Configure as output pin.
   #endif
-  
+	
+  SPINDLE_DIRECTION_DDR |= (1<<SPINDLE_DIRECTION_BIT); // Configure as output pin.
+	
   spindle_stop();
 }
 
@@ -59,7 +59,7 @@ void spindle_stop()
 void spindle_run(uint8_t direction, float rpm) 
 {
   // Empty planner buffer to ensure spindle is set when programmed.
-  plan_synchronize(); 
+  protocol_buffer_synchronize(); 
 
   // Halt or set spindle direction and rpm. 
   if (direction == SPINDLE_DISABLE) {

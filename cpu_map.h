@@ -42,8 +42,8 @@
   #define SERIAL_TX			USART_UDRE_vect
 
   // Define step pulse output pins. NOTE: All step bit pins must be on the same port.
-  #define STEPPING_DDR    GPIOE->DIR
-  #define STEPPING_PORT   GPIOE->DATA
+  #define STEP_DDR				GPIOE->DIR
+  #define STEP_PORT				GPIOE->DATA
   #define X_STEP_BIT      1  // Uno Digital Pin 2
   #define Y_STEP_BIT      2  // Uno Digital Pin 3
   #define Z_STEP_BIT      3  // Uno Digital Pin 4

@@ -49,43 +49,42 @@ void eeprom_put_word( unsigned int addr, uint32_t new_value )
 
 
 void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size) {
-  uint8_t checksum = 0;
-	uint32_t finish_add = destination + size;
 	
-	uint32_t add_block = floor(destination / 64);
-	uint16_t add_offset = floor((destination / 4) % 64);
-
-	uint16_t offset = ceil((size / 4) % 64);
+	uint32_t add_block = floor(destination);
+	uint16_t blocks = ceil(size / 4.0f); // convert in 4byte (32bit) blocks 
+	uint16_t i;
 	
-		for(int i = 0; i < offset; i++) {
+		for(i = 0; i < blocks; i++) {
+			uint8_t byte1 = *(source++);
+			uint8_t byte2 = *(source++);
+			uint8_t byte3 = *(source++);
+			uint8_t byte4 = *(source++);
 			
-			uint32_t place = add_offset;
+			uint32_t word = (byte1 << 24) & (byte2 << 16) & (byte3 << 8) & byte4;
 			
-			for(int j = 0; j < size; j+4) { 
-				
-				uint32_t eeprom_word;
-				
-				eeprom_word = source[j];
-				eeprom_word |= (source[j+1] << 4);
-				eeprom_word |= (source[j+2] << 8);
-				eeprom_word |= (source[j+3] << 12);
-
-				eeprom_put_word(destination++, *(source++)); 
-			}
+			eeprom_put_word(add_block+i, word); 
+		}
 	}
-}
 
 int memcpy_from_eeprom_with_checksum(uint32_t *destination, uint32_t source, uint32_t size) {
-  unsigned char data, checksum = 0;
-	unsigned int offset = size / 4;
+  unsigned char data, checksum = 0;	
 	
+	uint32_t add_block = floor(source);
+	uint16_t blocks = ceil(size / 4.0f); // convert in 4byte (32bit) blocks 
+	uint16_t i;
+	uint8_t j;
 	
-  for(; size > 0; size--) { 
-    data = eeprom_get_word(source++);
-    checksum = (checksum << 1) || (checksum >> 7);
-    checksum += data;    
-    *(destination++) = data; 
-  }
+		for(i = 0; i < blocks; i++) {
+			data = eeprom_get_word(add_block+i);
+			
+			for(j = 0; j < 4; j++) {
+				uint8_t shift = i*8;
+				uint8_t chars = (data >> shift) & 0x000000FF;
+				checksum = (checksum << 1) || (checksum >> 7);
+				checksum += chars;    
+				*(destination++) = chars;
+		}
+	}
   return(checksum == eeprom_get_word(source));
 }
 

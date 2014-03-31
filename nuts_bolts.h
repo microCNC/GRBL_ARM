@@ -90,7 +90,7 @@ typedef uint32_t prog_uint32_t;
 
 //Math Macros
 #ifndef M_PI
-#define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846f
 #endif
 
 // Read a floating point value from a string. Line points to the input buffer, char_counter 

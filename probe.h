@@ -1,9 +1,8 @@
 /*
-  limits.h - code pertaining to limit-switches and performing the homing cycle
+  probe.h - code pertaining to probing methods
   Part of Grbl
 
-  Copyright (c) 2013-2014 Sungeun K. Jeon  
-  Copyright (c) 2009-2011 Simen Svale Skogsrud
+  Copyright (c) 2014 Sungeun K. Jeon
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -18,21 +17,20 @@
   You should have received a copy of the GNU General Public License
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
+  
+#ifndef probe_h
+#define probe_h 
 
-#ifndef limits_h
-#define limits_h 
+// Values that define the probing state machine.  
+#define PROBE_OFF     0 // No probing. (Must be zero.)
+#define PROBE_ACTIVE  1 // Actively watching the input pin.
 
-#include <inttypes.h>
 
-// Initialize the limits module
-void limits_init(void);
+// Probe pin initialization routine.
+void probe_init(void);
 
-void limits_disable(void);
-
-// Perform one portion of the homing cycle based on the input settings.
-void limits_go_home(uint8_t cycle_mask);
-
-// Check for soft limit violations
-void limits_soft_check(float *target);
+// Monitors probe pin state and records the system position when detected. Called by the
+// stepper ISR per ISR tick.
+void probe_state_monitor(void);
 
 #endif

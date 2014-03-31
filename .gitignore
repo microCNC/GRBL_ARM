@@ -1,0 +1,12 @@
+*.hex
+*.o
+*.elf
+*.DS_Store
+*.d
+*.crf
+*.lst
+*.bak
+*.htm
+*.Rob
+*.dep
+*.uvopt

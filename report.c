@@ -32,6 +32,8 @@
 #include "settings.h"
 #include "gcode.h"
 #include "coolant_control.h"
+#include "planner.h"
+#include "spindle_control.h"
 
 
 // Handles the primary confirmation protocol response for streaming interfaces and human-feedback.
@@ -91,8 +93,10 @@ void report_alarm_message(int8_t alarm_code)
     printPgmString(PSTR("Hard/soft limit")); break;
     case ALARM_ABORT_CYCLE: 
     printPgmString(PSTR("Abort during cycle")); break;
+    case ALARM_PROBE_FAIL:
+    printPgmString(PSTR("Probe fail")); break;
   }
-  printPgmString(PSTR(". MPos?\r\n"));
+  printPgmString(PSTR("\r\n"));
   delay_ms(500); // Force delay to ensure message clears serial write buffer.
 }
 
@@ -186,8 +190,28 @@ void report_grbl_settings() {
 }
 
 
-// Prints gcode coordinate offset parameters
-void report_gcode_parameters()
+// Prints current probe parameters. Upon a probe command, these parameters are updated upon a
+// successful probe or upon a failed probe with the G38.3 without errors command (if supported). 
+// These values are retained until Grbl is power-cycled, whereby they will be re-zeroed.
+void report_probe_parameters()
+{
+  uint8_t i;
+  float print_position[N_AXIS];
+ 
+  // Report in terms of machine position.
+  printPgmString(PSTR("[Probe:")); 
+  for (i=0; i< N_AXIS; i++) {
+    print_position[i] = sys.probe_position[i]/settings.steps_per_mm[i];
+    if (bit_istrue(settings.flags,BITFLAG_REPORT_INCHES)) { print_position[i] *= INCH_PER_MM; }
+    printFloat(print_position[i]);
+    if (i < (N_AXIS-1)) { printPgmString(PSTR(",")); }
+  }  
+  printPgmString(PSTR("]\r\n"));
+}
+
+
+// Prints Grbl NGC parameters (coordinate offsets, probing)
+void report_ngc_parameters()
 {
   float coord_data[N_AXIS];
   uint8_t coord_select, i;
@@ -222,6 +246,7 @@ void report_gcode_parameters()
     if (i < (N_AXIS-1)) { printPgmString(PSTR(",")); }
     else { printPgmString(PSTR("]\r\n")); }
   } 
+  report_probe_parameters(); // Print probe parameters. Not persistent in memory.
 }
 
 
@@ -260,9 +285,9 @@ void report_gcode_modes()
   }
 
   switch (gc.spindle_direction) {
-    case 1 : printPgmString(PSTR(" M3")); break;
-    case -1 : printPgmString(PSTR(" M4")); break;
-    case 0 : printPgmString(PSTR(" M5")); break;
+    case SPINDLE_ENABLE_CW : printPgmString(PSTR(" M3")); break;
+    case SPINDLE_ENABLE_CCW : printPgmString(PSTR(" M4")); break;
+    case SPINDLE_DISABLE : printPgmString(PSTR(" M5")); break;
   }
   
   switch (gc.coolant_mode) {
@@ -314,9 +339,8 @@ void report_realtime_status()
   // for a user to select the desired real-time data.
   uint8_t i;
   int32_t current_position[N_AXIS]; // Copy current state of the system position variable
-	float print_position[N_AXIS];
-	
   memcpy(current_position,sys.position,sizeof(sys.position));
+  float print_position[N_AXIS];
  
   // Report current machine state
   switch (sys.state) {
@@ -349,6 +373,17 @@ void report_realtime_status()
     printFloat(print_position[i]);
     if (i < (N_AXIS-1)) { printPgmString(PSTR(",")); }
   }
+    
+  #ifdef USE_LINE_NUMBERS
+  // Report current line number
+  printPgmString(PSTR(",Ln:")); 
+  int32_t ln=0;
+  plan_block_t * pb = plan_get_current_block();
+  if(pb != NULL) {
+    ln = pb->line_number;
+  } 
+  printInteger(ln);
+  #endif
     
   printPgmString(PSTR(">\r\n"));
 }

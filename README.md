@@ -22,3 +22,10 @@ Floating Point Unit
 
 
 I am using KEIL MDK-ARM Lite ( free version ) to develop and flash to the board
+
+***
+TODO List.
+
+EEPROM
+Stepper Timers and outputs
+Spindle PWM

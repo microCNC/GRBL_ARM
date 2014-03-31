@@ -24,8 +24,8 @@
 
 #include "system.h"
 #include "settings.h"
+#include "protocol.h"
 #include "gcode.h"
-#include "planner.h"
 #include "motion_control.h"
 #include "spindle_control.h"
 #include "coolant_control.h"
@@ -64,7 +64,7 @@ void gc_init()
 
 // Sets g-code parser position in mm. Input in steps. Called by the system abort and hard
 // limit pull-off routines.
-void gc_sync_position(int32_t x, int32_t y, int32_t z) 
+void gc_sync_position() 
 {
   uint8_t i;
   for (i=0; i<N_AXIS; i++) {
@@ -86,36 +86,30 @@ static float to_millimeters(float value)
 // coordinates, respectively.
 uint8_t gc_execute_line(char *line) 
 {
-	uint8_t char_counter = 0;  
+  uint8_t char_counter = 0;  
   char letter;
   float value;
   int int_value;
-	
-	uint16_t modal_group_words = 0;  // Bitflag variable to track and check modal group words in block
+  
+  uint16_t modal_group_words = 0;  // Bitflag variable to track and check modal group words in block
   uint8_t axis_words = 0;          // Bitflag to track which XYZ(ABC) parameters exist in block
-	
-	float target[N_AXIS];
 
   float inverse_feed_rate = -1; // negative inverse_feed_rate means no inverse_feed_rate specified
   uint8_t absolute_override = false; // true(1) = absolute motion for this block only {G53}
   uint8_t non_modal_action = NON_MODAL_NONE; // Tracks the actions of modal group 0 (non-modal)
+  
+	#ifdef USE_LINE_NUMBERS
+  int32_t line_number = 0;
+  #endif
 	
 	uint8_t group_number;
 	float p;
-  uint8_t l;
+	uint8_t l;
 	
 	// Initialize axis index
   uint8_t idx;
-	
 	float coord_data[N_AXIS];
-	
-	uint8_t isclockwise;
-	
-	
-  // If in alarm state, don't process. Immediately return with error.
-  // NOTE: Might not be right place for this, but also prevents $N storing during alarm.
-  if (sys.state == STATE_ALARM) { return(STATUS_ALARM_LOCK); }
-
+  float target[N_AXIS];
   clear_vector(target); // XYZ(ABC) axes parameters.
 
   gc.arc_radius = 0;
@@ -133,7 +127,7 @@ uint8_t gc_execute_line(char *line)
         // Set modal group values
         switch(int_value) {
           case 4: case 10: case 28: case 30: case 53: case 92: group_number = MODAL_GROUP_0; break;
-          case 0: case 1: case 2: case 3: case 80: group_number = MODAL_GROUP_1; break;
+          case 0: case 1: case 2: case 3: case 38: case 80: group_number = MODAL_GROUP_1; break;
           case 17: case 18: case 19: group_number = MODAL_GROUP_2; break;
           case 90: case 91: group_number = MODAL_GROUP_3; break;
           case 93: case 94: group_number = MODAL_GROUP_5; break;
@@ -163,6 +157,16 @@ uint8_t gc_execute_line(char *line)
               default: FAIL(STATUS_UNSUPPORTED_STATEMENT);
             }
             break;
+          case 38: 
+            int_value = trunc(10*value); // Multiply by 10 to pick up Gxx.1
+            switch(int_value) {
+              case 382: gc.motion_mode = MOTION_MODE_PROBE; break;
+              // case 383: gc.motion_mode = MOTION_MODE_PROBE_NO_ERROR; break; // Not supported.
+              // case 384: // Not supported.
+              // case 385: // Not supported.                            
+              default: FAIL(STATUS_UNSUPPORTED_STATEMENT);
+            }
+            break;  
           case 53: absolute_override = true; break;
           case 54: case 55: case 56: case 57: case 58: case 59:
             gc.coord_select = int_value-54;
@@ -232,7 +236,7 @@ uint8_t gc_execute_line(char *line)
   char_counter = 0;
   while(next_statement(&letter, &value, line, &char_counter)) {
     switch(letter) {
-      case 'G': case 'M': case 'N': break; // Ignore command statements and line numbers
+      case 'G': case 'M': break; // Ignore command statements and line numbers
       case 'F': 
         if (value <= 0) { FAIL(STATUS_INVALID_STATEMENT); } // Must be greater than zero
         if (gc.inverse_feed_rate_mode) {
@@ -243,6 +247,11 @@ uint8_t gc_execute_line(char *line)
         break;
       case 'I': case 'J': case 'K': gc.arc_offset[letter-'I'] = to_millimeters(value); break;
       case 'L': l = trunc(value); break;
+      case 'N': 
+        #ifdef USE_LINE_NUMBERS
+        line_number = trunc(value); 
+        #endif
+        break;
       case 'P': p = value; break;                    
       case 'R': gc.arc_radius = to_millimeters(value); break;
       case 'S': 
@@ -271,10 +280,14 @@ uint8_t gc_execute_line(char *line)
     //  ([M6]: Tool change should be executed here.)
 
     // [M3,M4,M5]: Update spindle state
-    spindle_run(gc.spindle_direction, gc.spindle_speed);
+    if (bit_istrue(modal_group_words,bit(MODAL_GROUP_7))) {
+      spindle_run(gc.spindle_direction, gc.spindle_speed); 
+    }
   
     // [*M7,M8,M9]: Update coolant state
-    coolant_run(gc.coolant_mode);
+    if (bit_istrue(modal_group_words,bit(MODAL_GROUP_8))) {
+      coolant_run(gc.coolant_mode);
+    }
   }
   
   // [G54,G55,...,G59]: Coordinate system selection
@@ -303,6 +316,7 @@ uint8_t gc_execute_line(char *line)
       } else if (!axis_words && l==2) { // No axis words.
         FAIL(STATUS_INVALID_STATEMENT);
       } else {
+				float coord_data[N_AXIS];
         if (int_value > 0) { int_value--; } // Adjust P1-P6 index to EEPROM coordinate data indexing.
         else { int_value = gc.coord_select; } // Index P0 as the active coordinate system
         if (!settings_read_coord_data(int_value,coord_data)) { return(STATUS_SETTING_READ_FAIL); }
@@ -338,15 +352,24 @@ uint8_t gc_execute_line(char *line)
             target[idx] = gc.position[idx];
           }
         }
+        #ifdef USE_LINE_NUMBERS
+        mc_line(target, -1.0, false, line_number);
+        #else
         mc_line(target, -1.0, false);
+        #endif
       }
       // Retreive G28/30 go-home position data (in machine coordinates) from EEPROM
+      
       if (non_modal_action == NON_MODAL_GO_HOME_0) {
         if (!settings_read_coord_data(SETTING_INDEX_G28,coord_data)) { return(STATUS_SETTING_READ_FAIL); }
       } else {
         if (!settings_read_coord_data(SETTING_INDEX_G30,coord_data)) { return(STATUS_SETTING_READ_FAIL); }
       }
-      mc_line(coord_data, -1.0, false); 
+      #ifdef USE_LINE_NUMBERS
+      mc_line(coord_data, -1.0f, false, line_number); 
+      #else
+      mc_line(*coord_data, -1.0f, false); 
+      #endif
       memcpy(gc.position, coord_data, sizeof(coord_data)); // gc.position[] = coord_data[];
       axis_words = 0; // Axis words used. Lock out from motion modes by clearing flags.
       break;
@@ -417,7 +440,13 @@ uint8_t gc_execute_line(char *line)
         break;
       case MOTION_MODE_SEEK:
         if (!axis_words) { FAIL(STATUS_INVALID_STATEMENT);} 
-        else { mc_line(target, -1.0, false); }
+        else { 
+          #ifdef USE_LINE_NUMBERS
+          mc_line(target, -1.0, false, line_number);
+          #else
+          mc_line(target, -1.0, false);
+          #endif
+        }
         break;
       case MOTION_MODE_LINEAR:
         // TODO: Inverse time requires F-word with each statement. Need to do a check. Also need
@@ -425,7 +454,13 @@ uint8_t gc_execute_line(char *line)
         // and after an inverse time move and then check for non-zero feed rate each time. This
         // should be efficient and effective.
         if (!axis_words) { FAIL(STATUS_INVALID_STATEMENT);} 
-        else { mc_line(target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode); }
+        else { 
+          #ifdef USE_LINE_NUMBERS
+          mc_line(target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode, line_number);
+          #else
+          mc_line(target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode);
+          #endif
+        }
         break;
       case MOTION_MODE_CW_ARC: case MOTION_MODE_CCW_ARC:
         // Check if at least one of the axes of the selected plane has been specified. If in center 
@@ -434,6 +469,8 @@ uint8_t gc_execute_line(char *line)
              ( !gc.arc_radius && !gc.arc_offset[gc.plane_axis_0] && !gc.arc_offset[gc.plane_axis_1] ) ) { 
           FAIL(STATUS_INVALID_STATEMENT);
         } else {
+					uint8_t isclockwise;
+					
           if (gc.arc_radius != 0) { // Arc Radius Mode
             // Compute arc radius and offsets
             gc_convert_arc_radius_mode(target);
@@ -447,10 +484,26 @@ uint8_t gc_execute_line(char *line)
           if (gc.motion_mode == MOTION_MODE_CW_ARC) { isclockwise = true; }
     
           // Trace the arc
+          #ifdef USE_LINE_NUMBERS
+          mc_arc(gc.position, target, gc.arc_offset, gc.plane_axis_0, gc.plane_axis_1, gc.plane_axis_2,
+            (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode,
+            gc.arc_radius, isclockwise, line_number);
+          #else
           mc_arc(gc.position, target, gc.arc_offset, gc.plane_axis_0, gc.plane_axis_1, gc.plane_axis_2,
             (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode,
             gc.arc_radius, isclockwise);
+          #endif
         }            
+        break;
+      case MOTION_MODE_PROBE:
+        if (!axis_words) { FAIL(STATUS_INVALID_STATEMENT); }
+        else {
+          #ifdef USE_LINE_NUMBERS
+          mc_probe_cycle(target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode, line_number);
+          #else
+          mc_probe_cycle(target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode);
+          #endif
+        }
         break;
     }
     
@@ -465,15 +518,15 @@ uint8_t gc_execute_line(char *line)
   
   // M0,M1,M2,M30: Perform non-running program flow actions. During a program pause, the buffer may 
   // refill and can only be resumed by the cycle start run-time command.
-  if (gc.program_flow) {
-    plan_synchronize(); // Finish all remaining buffered motions. Program paused when complete.
+  if (gc.program_flow) { 
+    protocol_buffer_synchronize(); // Finish all remaining buffered motions. Program paused when complete.
     sys.auto_start = false; // Disable auto cycle start. Forces pause until cycle start issued.
-    
+  
     // If complete, reset to reload defaults (G92.2,G54,G17,G90,G94,M48,G40,M5,M9). Otherwise,
     // re-enable program flow after pause complete, where cycle start will resume the program.
     if (gc.program_flow == PROGRAM_FLOW_COMPLETED) { mc_reset(); }
     else { gc.program_flow = PROGRAM_FLOW_RUNNING; }
-  }    
+  }
   
   return(gc.status_code);
 }
@@ -551,7 +604,6 @@ static void gc_convert_arc_radius_mode(float *target)
     j = (y + (x * h_x2_div_d))/2        */
   
 	float h_x2_div_d;
-	
 	
   // Calculate the change in position along each selected axis
   float x = target[gc.plane_axis_0]-gc.position[gc.plane_axis_0];
