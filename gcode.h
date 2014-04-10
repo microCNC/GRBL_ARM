@@ -49,6 +49,7 @@
 #define MOTION_MODE_CCW_ARC 3  // G3
 #define MOTION_MODE_PROBE 4 // G38.x
 #define MOTION_MODE_CANCEL 5 // G80
+#define MOTION_MODE_DRILL 6 // G81
 
 #define PROGRAM_FLOW_RUNNING 0
 #define PROGRAM_FLOW_PAUSED 1 // M0, M1
@@ -68,8 +69,9 @@ typedef struct {
   uint8_t status_code;             // Parser status for current block
   uint8_t motion_mode;             // {G0, G1, G2, G3, G80}
   uint8_t inverse_feed_rate_mode;  // {G93, G94}
-  uint8_t inches_mode;             // 0 = millimeter mode, 1 = inches mode {G20, G21}
-  uint8_t absolute_mode;           // 0 = relative motion, 1 = absolute motion {G90, G91}
+  uint8_t inches_mode;             	 // 0 = millimeter mode, 1 = inches mode {G20, G21}
+  uint8_t absolute_mode;          		 // 0 = relative motion, 1 = absolute motion {G90, G91}
+	uint8_t z_retract;									 // 0 = Use R Value, 1 = use old Z Value {G98}
   uint8_t program_flow;            // {M0, M1, M2, M30}
   uint8_t coolant_mode;            // 0 = Disable, 1 = Flood Enable, 2 = Mist Enable {M8, M9}
   uint8_t spindle_direction;        // 1 = CW, 2 = CCW, 0 = Stop {M3, M4, M5}

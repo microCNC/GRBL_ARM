@@ -339,9 +339,16 @@ void report_realtime_status()
   // for a user to select the desired real-time data.
   uint8_t i;
   int32_t current_position[N_AXIS]; // Copy current state of the system position variable
+	float print_position[N_AXIS];
+	
+	#ifdef USE_LINE_NUMBERS
+	int32_t ln=0;
+	plan_block_t * pb;
+  #endif
+	
+	
   memcpy(current_position,sys.position,sizeof(sys.position));
-  float print_position[N_AXIS];
- 
+  
   // Report current machine state
   switch (sys.state) {
     case STATE_IDLE: printPgmString(PSTR("<Idle")); break;
@@ -376,9 +383,8 @@ void report_realtime_status()
     
   #ifdef USE_LINE_NUMBERS
   // Report current line number
+	pb = plan_get_current_block();
   printPgmString(PSTR(",Ln:")); 
-  int32_t ln=0;
-  plan_block_t * pb = plan_get_current_block();
   if(pb != NULL) {
     ln = pb->line_number;
   } 

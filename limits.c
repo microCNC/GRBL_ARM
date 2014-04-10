@@ -34,28 +34,22 @@
 
 void limits_init() 
 {
-	/*
-  LIMIT_DDR &= ~(LIMIT_MASK); // Set as input pins
-
-  if (bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS)) {
-    LIMIT_PORT &= ~(LIMIT_MASK); // Normal low operation. Requires external pull-down.
-  } else {
-    LIMIT_PORT |= (LIMIT_MASK);  // Enable internal pull-up resistors. Normal high operation.
-  }
-
-  if (bit_istrue(settings.flags,BITFLAG_HARD_LIMIT_ENABLE)) {
-    LIMIT_PCMSK |= LIMIT_MASK; // Enable specific pins of the Pin Change Interrupt
-    PCICR |= (1 << LIMIT_INT); // Enable Pin Change Interrupt
-  } else {
-    limits_disable(); 
-  }
-  
-  #ifdef ENABLE_SOFTWARE_DEBOUNCE
-  MCUSR &= ~(1<<WDRF);
-  WDTCSR |= (1<<WDCE) | (1<<WDE);
-  WDTCSR = (1<<WDP0); // Set time-out at ~32msec.
-  #endif
-	*/
+	SYSCTL->RCGCGPIO |= (1 << LIMIT_PORT_IRQN);			// enable clock
+	SYSCTL->GPIOHBCTL |= (1 << LIMIT_PORT_IRQN);			// enable high performace bus
+	
+	PINOUT_DDR &= ~PINOUT_MASK;        // make input pin
+  PINOUT_ENABLE |= PINOUT_MASK;         // make digital pin
+	
+	//set interrupts
+	
+  LIMIT_PORT->IS  &= ~PINOUT_MASK;        // make bit edge sensitive
+  LIMIT_PORT->IBE &= ~PINOUT_MASK;        // trigger is controlled by IEV
+  LIMIT_PORT->IEV |= PINOUT_MASK;         // rising edge trigger
+  LIMIT_PORT->ICR |= PINOUT_MASK;         // clear any prior interrupt
+  LIMIT_PORT->IM  |= PINOUT_MASK;         // unmask interrupt
+	
+	NVIC_SetPriority(LIMIT_PORT_IRQN, 7);				// set interrupt priority to 6
+  NVIC_EnableIRQ(LIMIT_PORT_IRQN);							// enable IRQ2
 }
 
 
@@ -79,9 +73,11 @@ void limits_disable()
 // homing cycles and will not respond correctly. Upon user request or need, there may be a
 // special pinout for an e-stop, but it is generally recommended to just directly connect
 // your e-stop switch to the Arduino reset pin, since it is the most correct way to do this.
-#ifndef ENABLE_SOFTWARE_DEBOUNCE
-ISR(LIMIT_INT_vect) // DEFAULT: Limit pin change interrupt process. 
+
+void LIMIT_INT_HANDLER(void)
 {
+	NVIC_ClearPendingIRQ(LIMIT_PORT_IRQN); // Clear Pending Interrupt Register
+	
   // Ignore limit switches if already in an alarm state or in-process of executing an alarm.
   // When in the alarm state, Grbl should have been reset or will force a reset, so any pending 
   // moves in the planner and serial buffers are all cleared and newly sent blocks will be 
@@ -94,26 +90,6 @@ ISR(LIMIT_INT_vect) // DEFAULT: Limit pin change interrupt process.
     }
   }
 }  
-#else // OPTIONAL: Software debounce limit pin routine.
-// Upon limit pin change, enable watchdog timer to create a short delay. 
-ISR(LIMIT_INT_vect) { if (!(WDTCSR & (1<<WDIE))) { WDTCSR |= (1<<WDIE); } }
-ISR(WDT_vect) // Watchdog timer ISR
-{
-  WDTCSR &= ~(1<<WDIE); // Disable watchdog timer. 
-  if (sys.state != STATE_ALARM) {  // Ignore if already in alarm state. 
-    if (bit_isfalse(sys.execute,EXEC_ALARM)) {
-      uint8_t bits = LIMIT_PIN;
-      // Check limit pin state. 
-      if (bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS)) { bits ^= LIMIT_MASK; }
-      if (bits & LIMIT_MASK) {
-        mc_reset(); // Initiate system kill.
-        sys.execute |= (EXEC_ALARM | EXEC_CRIT_EVENT); // Indicate hard limit critical event
-      }
-    }  
-  }
-}
-#endif
-
 
 // Homes the specified cycle axes, sets the machine position, and performs a pull-off motion after
 // completing. Homing is a special motion case, which involves rapid uncontrolled stops to locate
@@ -192,7 +168,7 @@ void limits_go_home(uint8_t cycle_mask)
     st_wake_up(); // Initiate motion
     do {
       // Check limit state. Lock out cycle axes when they change.
-      limit_state = LIMIT_PIN;
+      limit_state = LIMIT_VALUE;
       if (invert_pin) { limit_state ^= LIMIT_MASK; }
       if (axislock & (1<<X_STEP_BIT)) {
         if (limit_state & (1<<X_LIMIT_BIT)) { axislock &= ~(1<<X_STEP_BIT); }

@@ -161,7 +161,7 @@ uint8_t read_global_settings() {
 
 // A helper method to set settings from command line
 uint8_t settings_store_global_setting(int parameter, float value) {
-  if (value < 0.0) { return(STATUS_SETTING_VALUE_NEG); } 
+  if (value < 0.0f) { return(STATUS_SETTING_VALUE_NEG); } 
   switch(parameter) {
     case 0: case 1: case 2:
       settings.steps_per_mm[parameter] = value; break;

@@ -34,19 +34,19 @@ void system_init(void)
 	SYSCTL->RCGCGPIO |= (1 << PINOUT_PORT_IRQN);			// enable clock
 	SYSCTL->GPIOHBCTL |= (1 << PINOUT_PORT_IRQN);			// enable high performace bus
 	
-	PINOUT_DDR &= ~PINOUT_MASK;        // make input pin
-  PINOUT_ENABLE |= PINOUT_MASK;         // make digital pin
+	PINOUT_DDR &= ~PINOUT_MASK;								// make input pin
+  PINOUT_ENABLE |= PINOUT_MASK;         		// make digital pin
 	
 	//set interrupts
 	
   PINOUT_PORT->IS  &= ~PINOUT_MASK;        // make bit edge sensitive
   PINOUT_PORT->IBE &= ~PINOUT_MASK;        // trigger is controlled by IEV
-  PINOUT_PORT->IEV |= PINOUT_MASK;         // rising edge trigger
-  PINOUT_PORT->ICR |= PINOUT_MASK;         // clear any prior interrupt
-  PINOUT_PORT->IM  |= PINOUT_MASK;         // unmask interrupt
+  PINOUT_PORT->IEV &= ~PINOUT_MASK;        // Falling edge trigger
+  PINOUT_PORT->ICR = PINOUT_MASK;          // clear any prior interrupt
+  PINOUT_PORT->IM  |= PINOUT_MASK;         // set interrupt on ports
 	
 	NVIC_SetPriority(PINOUT_PORT_IRQN, 6);				// set interrupt priority to 6
-  NVIC_EnableIRQ(PINOUT_PORT_IRQN);							// enable IRQ2
+  NVIC_EnableIRQ(PINOUT_PORT_IRQN);							// enable IRQ
 }
 
 
@@ -56,16 +56,17 @@ void system_init(void)
 // directly from the incoming serial data stream.
 void PINOUT_INT_HANDLER(void)
 {
-	NVIC_ClearPendingIRQ(PINOUT_PORT_IRQN); // Clear Pending Interrupt Register
-	
   // Enter only if any pinout pin is actively low.
-  if ((PINOUT_VALUE & PINOUT_MASK) ^ PINOUT_MASK) { 
+  if ((PINOUT_PORT->RIS & PINOUT_MASK) ^ PINOUT_MASK) { 
     if (bit_isfalse(PINOUT_VALUE,bit(PIN_RESET))) {
       mc_reset();
-    } else if (bit_isfalse(PINOUT_VALUE,bit(PIN_FEED_HOLD))) {
-      sys.execute |= EXEC_FEED_HOLD; 
-    } else if (bit_isfalse(PINOUT_VALUE,bit(PIN_CYCLE_START))) {
+			PINOUT_PORT->ICR = (1<<PIN_RESET); // Clear Pending Interrupt Register
+    } else if (bit_isfalse(PINOUT_PORT->RIS,bit(PIN_FEED_HOLD))) {
+      sys.execute |= EXEC_FEED_HOLD;
+			PINOUT_PORT->ICR = (1<<PIN_FEED_HOLD); // Clear Pending Interrupt Register
+    } else if (bit_isfalse(PINOUT_PORT->RIS,bit(PIN_CYCLE_START))) {
       sys.execute |= EXEC_CYCLE_START;
+			PINOUT_PORT->ICR = (1<<PIN_CYCLE_START); // Clear Pending Interrupt Register
     }
   }
 }

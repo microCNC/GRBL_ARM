@@ -84,25 +84,26 @@ void serial_write(uint8_t data) {
 // Data Register Empty Interrupt handler
 void UART0_Handler(void)
 {
-	if (UART0->MIS == 0x20)
-	{
-  uint8_t tail = tx_buffer_tail; // Temporary tx_buffer_tail (to optimize for volatile)
-	
-  { 
-    // Send a byte from the buffer	
-    UART0->DR = tx_buffer[tail];
-  
-    // Update tail position
-    tail++;
-    if (tail == TX_BUFFER_SIZE) { tail = 0; }
-  
-    tx_buffer_tail = tail;
-  }
-  
-  // Turn off Data Register Empty Interrupt to stop tx-streaming if this concludes the transfer
-  if (tail == tx_buffer_head) { UART0->ICR = 0x20; // Clear Interrupt }
-}
-}
+	if (UART0->RIS == 0x20)
+		{
+		volatile uint8_t tail = tx_buffer_tail; // Temporary tx_buffer_tail (to optimize for volatile)
+		
+		{ 
+			// Send a byte from the buffer	
+			UART0->DR = tx_buffer[tail];
+		
+			// Update tail position
+			tail++;
+			if (tail == TX_BUFFER_SIZE) { tail = 0; }
+		
+			tx_buffer_tail = tail;
+		}
+		
+		// Turn off Data Register Empty Interrupt to stop tx-streaming if this concludes the transfer
+		if (tail == tx_buffer_head) {
+				UART0->ICR = 0x20; // Clear Interrupt
+		}
+	}
 }
 
 uint8_t serial_read()

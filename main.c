@@ -25,6 +25,7 @@
 #include "protocol.h"
 #include "gcode.h"
 #include "planner.h"
+#include "timer.h"
 #include "stepper.h"
 #include "spindle_control.h"
 #include "coolant_control.h"
@@ -40,9 +41,12 @@ system_t sys;
 
 int main(void)
 {
+	cli(); // Disable interrupts
+	
   // Initialize system upon power-up.
   serial_init();   // Setup serial baud rate and interrupts
   settings_init(); // Load grbl settings from EEPROM
+	timer_init(); 	 // Configure Timers ready for Steppers
   stepper_init();  // Configure stepper pins and interrupt timers
   system_init();   // Configure pinout pins and pin-change interrupt
   

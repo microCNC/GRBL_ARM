@@ -39,7 +39,6 @@ parser_state_t gc;
 static uint8_t next_statement(char *letter, float *float_ptr, char *line, uint8_t *char_counter);
 static void gc_convert_arc_radius_mode(float *target) __attribute__((noinline));
 
-
 static void select_plane(uint8_t axis_0, uint8_t axis_1, uint8_t axis_2) 
 {
   gc.plane_axis_0 = axis_0;
@@ -104,12 +103,15 @@ uint8_t gc_execute_line(char *line)
 	
 	uint8_t group_number;
 	float p;
+	float q;
 	uint8_t l;
 	
 	// Initialize axis index
   uint8_t idx;
+	
 	float coord_data[N_AXIS];
   float target[N_AXIS];
+	
   clear_vector(target); // XYZ(ABC) axes parameters.
 
   gc.arc_radius = 0;
@@ -172,6 +174,9 @@ uint8_t gc_execute_line(char *line)
             gc.coord_select = int_value-54;
             break;
           case 80: gc.motion_mode = MOTION_MODE_CANCEL; break;
+					case 81: gc.motion_mode = MOTION_MODE_DRILL; break;
+					case 82: gc.motion_mode = MOTION_MODE_DRILL; break;
+					case 83: gc.motion_mode = MOTION_MODE_DRILL; break;
           case 90: gc.absolute_mode = true; break;
           case 91: gc.absolute_mode = false; break;
           case 92: 
@@ -184,6 +189,8 @@ uint8_t gc_execute_line(char *line)
             break;
           case 93: gc.inverse_feed_rate_mode = true; break;
           case 94: gc.inverse_feed_rate_mode = false; break;
+					case 98: gc.z_retract = true; break;
+					case 99: gc.z_retract = false; break;
           default: FAIL(STATUS_UNSUPPORTED_STATEMENT);
         }
         break;        
@@ -252,7 +259,8 @@ uint8_t gc_execute_line(char *line)
         line_number = trunc(value); 
         #endif
         break;
-      case 'P': p = value; break;                    
+      case 'P': p = value; break;    
+			case 'Q': q = value; break; 			
       case 'R': gc.arc_radius = to_millimeters(value); break;
       case 'S': 
         if (value < 0) { FAIL(STATUS_INVALID_STATEMENT); } // Cannot be negative
@@ -504,6 +512,87 @@ uint8_t gc_execute_line(char *line)
           mc_probe_cycle(target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode);
           #endif
         }
+        break;
+			case MOTION_MODE_DRILL: // Covers G81 and G82 ( G82 has the P value )
+        if (!axis_words) { FAIL(STATUS_INVALID_STATEMENT); }
+        else {
+					float drill_target[N_AXIS];
+					float R_value = gc.arc_radius;
+					bool R_level = true;
+					
+					if ( gc.arc_radius > gc.position[Z_AXIS] ) { R_level = false; }
+						
+					drill_target[X_AXIS] = target[X_AXIS];
+					drill_target[Y_AXIS] = target[Y_AXIS];
+					drill_target[Z_AXIS] = gc.position[Z_AXIS];
+					//Rapid to drill target
+					#ifdef USE_LINE_NUMBERS
+          mc_line(drill_target, -1.0, false, line_number);
+          #else
+          mc_line(drill_target, -1.0, false);
+          #endif
+					
+					if (R_level) {
+					drill_target[Z_AXIS] = R_value; // R Value
+					// Rapid to drill height
+					#ifdef USE_LINE_NUMBERS
+          mc_line(drill_target, -1.0, false, line_number);
+          #else
+          mc_line(drill_target, -1.0, false);
+          #endif
+					}
+					
+					if (q) { // G83 has the Q value for peck drilling ( Chip Breaking )
+						float temp_z = drill_target[Z_AXIS] - q;
+						while(temp_z > target[Z_AXIS])
+						{
+							drill_target[Z_AXIS] = temp_z;
+							// Plunge DOWN
+							#ifdef USE_LINE_NUMBERS
+							mc_line(drill_target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode, line_number);
+							#else
+							mc_line(drill_target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode);
+							#endif
+							temp_z = temp_z - q;
+						}
+					}
+					
+					drill_target[Z_AXIS] = target[Z_AXIS];
+					// Plunge DOWN
+          #ifdef USE_LINE_NUMBERS
+          mc_line(drill_target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode, line_number);
+          #else
+          mc_line(drill_target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode);
+          #endif
+						
+					if (p) { mc_dwell(p); } // G82 Has the P value to pause at the bottom of the hole before retracting.
+
+					drill_target[Z_AXIS] = R_value; // R Value
+					// Plunge UP
+					#ifdef USE_LINE_NUMBERS
+					mc_line(drill_target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode, line_number);
+          #else
+          mc_line(drill_target, (gc.inverse_feed_rate_mode) ? inverse_feed_rate : gc.feed_rate, gc.inverse_feed_rate_mode);
+          #endif
+					
+
+					if (gc.z_retract) { // if G98 enabled retract to old Z height
+						if (!R_level) {
+							target[Z_AXIS] = gc.position[Z_AXIS];
+							//Rapid to old Z target
+							#ifdef USE_LINE_NUMBERS
+							mc_line(target, -1.0, false, line_number);
+							#else
+							mc_line(target, -1.0, false);
+							#endif
+						} else {
+							target[Z_AXIS] = R_value;
+						}
+					} else {
+						target[Z_AXIS] = R_value;
+					}
+					
+				}
         break;
     }
     

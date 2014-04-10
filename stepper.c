@@ -28,8 +28,8 @@
 
 
 // Some useful constants.
-#define DT_SEGMENT (1.0/(ACCELERATION_TICKS_PER_SECOND*60.0)) // min/segment 
-#define REQ_MM_INCREMENT_SCALAR 1.25                                   
+#define DT_SEGMENT (1.0f/(ACCELERATION_TICKS_PER_SECOND*60.0f)) // min/segment 
+#define REQ_MM_INCREMENT_SCALAR 1.25f                                   
 #define RAMP_ACCEL 0
 #define RAMP_CRUISE 1
 #define RAMP_DECEL 2
@@ -464,21 +464,21 @@ void stepper_init()
   DIRECTION_PORT = (DIRECTION_PORT & ~DIRECTION_MASK) | settings.dir_invert_mask;
 
   // Configure Timer 1: Stepper Driver Interrupt
-  TCCR1B &= ~(1<<WGM13); // waveform generation = 0100 = CTC
-  TCCR1B |=  (1<<WGM12);
-  TCCR1A &= ~((1<<WGM11) | (1<<WGM10)); 
-  TCCR1A &= ~((1<<COM1A1) | (1<<COM1A0) | (1<<COM1B1) | (1<<COM1B0)); // Disconnect OC1 output
+  //TCCR1B &= ~(1<<WGM13); // waveform generation = 0100 = CTC
+  //TCCR1B |=  (1<<WGM12);
+  //TCCR1A &= ~((1<<WGM11) | (1<<WGM10)); 
+  //TCCR1A &= ~((1<<COM1A1) | (1<<COM1A0) | (1<<COM1B1) | (1<<COM1B0)); // Disconnect OC1 output
   // TCCR1B = (TCCR1B & ~((1<<CS12) | (1<<CS11))) | (1<<CS10); // Set in st_go_idle().
   // TIMSK1 &= ~(1<<OCIE1A);  // Set in st_go_idle().
   
   // Configure Timer 0: Stepper Port Reset Interrupt
-  TIMSK0 &= ~((1<<OCIE0B) | (1<<OCIE0A) | (1<<TOIE0)); // Disconnect OC0 outputs and OVF interrupt.
-  TCCR0A = 0; // Normal operation
-  TCCR0B = 0; // Disable Timer0 until needed
-  TIMSK0 |= (1<<TOIE0); // Enable Timer0 overflow interrupt
-  #ifdef STEP_PULSE_DELAY
-    TIMSK0 |= (1<<OCIE0A); // Enable Timer0 Compare Match A interrupt
-  #endif
+  //TIMSK0 &= ~((1<<OCIE0B) | (1<<OCIE0A) | (1<<TOIE0)); // Disconnect OC0 outputs and OVF interrupt.
+  //TCCR0A = 0; // Normal operation
+  //TCCR0B = 0; // Disable Timer0 until needed
+  //TIMSK0 |= (1<<TOIE0); // Enable Timer0 overflow interrupt
+  //#ifdef STEP_PULSE_DELAY
+  //  TIMSK0 |= (1<<OCIE0A); // Enable Timer0 Compare Match A interrupt
+  //#endif
 }
   
 

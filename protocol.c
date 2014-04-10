@@ -39,11 +39,12 @@ static char line[LINE_BUFFER_SIZE]; // Line to be executed. Zero-terminated.
 // TODO: Eventually re-organize this function to more cleanly organize order of operations,
 // which will hopefully reduce some of the current spaghetti logic and dynamic memory usage. 
 static void protocol_execute_line(char *line) 
-{      
+{   
+	uint8_t status;
+	
   protocol_execute_runtime(); // Runtime command check point.
   if (sys.abort) { return; } // Bail to calling function upon system abort  
 
-  uint8_t status;
   if (line[0] == 0) {
     // Empty or comment line. Send status message for syncing purposes.
     status = STATUS_OK;
@@ -79,6 +80,10 @@ void protocol_main_loop()
   // Complete initialization procedures upon a power-up or reset.
   // ------------------------------------------------------------
   
+	uint8_t iscomment = false;
+  uint8_t char_counter = 0;
+  uint8_t c;
+	
   // Print welcome message   
   report_init_message();
 
@@ -95,9 +100,6 @@ void protocol_main_loop()
   // Main loop! Upon a system abort, this exits back to main() to reset the system. 
   // ------------------------------------------------------------------------------  
   
-  uint8_t iscomment = false;
-  uint8_t char_counter = 0;
-  uint8_t c;
   for (;;) {
 
     // Process one line of incoming serial data, as the data becomes available. Performs an

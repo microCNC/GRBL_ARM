@@ -24,9 +24,6 @@
 void SystemInit (void)
 {
 
-    uint32_t i;
-
-
   /* FPU settings ------------------------------------------------------------*/
   #if (__FPU_USED == 1)
     SCB->CPACR |= ((3UL << 10*2) |                 /* set CP10 Full Access */
