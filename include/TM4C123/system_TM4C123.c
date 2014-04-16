@@ -11,6 +11,7 @@
 
 #include "system_TM4C123.h"
 #include "TM4C123GH6PM.h"
+#include "../CMSIS/Include/arm_math.h"
 
 /**
  * Initialize the system

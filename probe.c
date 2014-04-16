@@ -25,8 +25,22 @@
 // Probe pin initialization routine.
 void probe_init() 
 {
-  PROBE_DDR &= ~(PROBE_MASK); // Configure as input pins
-  PROBE_PORT |= PROBE_MASK;   // Enable internal pull-up resistors. Normal high operation.
+	SYSCTL->RCGCGPIO |= (1 << PROBE_PORT_IRQN);			// enable clock
+	SYSCTL->GPIOHBCTL |= (1 << PROBE_PORT_IRQN);			// enable high performace bus
+	
+  PROBE_DDR &= ~(PROBE_MASK);				// Configure as input pins
+	PROBE_ENABLE |= PROBE_MASK;       // Enable digital pin
+  PROBE_PORT->PUR |= PROBE_MASK;		// Enable internal pull-up resistors. Normal high operation.
+	
+	//set interrupts
+  PROBE_PORT->IS  &= ~PROBE_MASK;        // make bit edge sensitive
+  PROBE_PORT->IBE &= ~PROBE_MASK;        // trigger is controlled by IEV
+  PROBE_PORT->IEV &= ~PROBE_MASK;        // Falling edge trigger
+  PROBE_PORT->ICR = PROBE_MASK;          // clear any prior interrupt
+  PROBE_PORT->IM  |= PROBE_MASK;         // set interrupt on ports
+	
+	NVIC_SetPriority(PINOUT_PORT_IRQN, 12);				// set interrupt priority to 6
+  NVIC_EnableIRQ(PINOUT_PORT_IRQN);							// enable IRQ
 }
 
 
@@ -36,7 +50,7 @@ void probe_init()
 void probe_state_monitor()
 {
   if (sys.probe_state == PROBE_ACTIVE) { 
-    if (!(PROBE_PIN & PROBE_MASK)) {
+    if (!(PROBE_VALUE & PROBE_MASK)) {
       sys.probe_state = PROBE_OFF;
       memcpy(sys.probe_position, sys.position, sizeof(float)*N_AXIS);
       sys.execute |= EXEC_FEED_HOLD;

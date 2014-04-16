@@ -7,7 +7,7 @@
 
   <Targets>
     <Target>
-      <TargetName>Target 1</TargetName>
+      <TargetName>GRBL_ARM</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
       <TargetOption>
@@ -224,7 +224,7 @@
             <RoSelD>3</RoSelD>
             <RwSelD>3</RwSelD>
             <CodeSel>0</CodeSel>
-            <OptFeed>0</OptFeed>
+            <OptFeed>1</OptFeed>
             <NoZi1>0</NoZi1>
             <NoZi2>0</NoZi2>
             <NoZi3>0</NoZi3>
@@ -396,7 +396,7 @@
       </TargetOption>
       <Groups>
         <Group>
-          <GroupName>Source Group 1</GroupName>
+          <GroupName>Source Files</GroupName>
           <Files>
             <File>
               <FileName>coolant_control.c</FileName>
@@ -491,7 +491,7 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>Startup</GroupName>
+          <GroupName>Startup Files</GroupName>
           <Files>
             <File>
               <FileName>startup_TM4C123.s</FileName>

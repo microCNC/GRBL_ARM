@@ -23,37 +23,60 @@
 void timer_init(void)
 {	
 	// SETUP WTIMER0
-	SYSCTL->RCGCWTIMER = SYSCTL->RCGCWTIMER | 0x3F; // Turn WTimer0 clocks on
-	while (SYSCTL->PRWTIMER != 0x3F);
+	SYSCTL->RCGCWTIMER = SYSCTL->RCGCWTIMER | 0x07; // Turn WTimer0,1,2 clocks on
+	while (SYSCTL->PRWTIMER != 0x07); // change this into a mask so it will be true when other WTIMERS are on aswell
 	
 	// configure WTIMER0 A as 32bit timer for one_shot_delay() function
-	WTIMER0->CTL = 0x00; // Disable A Timer
-	WTIMER0->CFG = 0x04; //Set as 32bit timer
-	WTIMER0->TAMR = 0x01; //Count Down, One Shot
-	WTIMER0->TAPR = 0x50; //Set 16bit prescaler to 80
+	//WTIMER0->CTL = 0x0202; // Disable A Timer
+	//WTIMER0->CFG = 0x04; //Set as 32bit timer
+	//WTIMER0->TAMR = 0x01; //Count Down, One Shot
+	//WTIMER0->TAPR = 0x50; //Set 16bit prescaler to 80 ( 1ms )
+	
+	// configure Stepper Timer
+	WTIMER1->CTL = 0x0202; // Disable A and B Timers
+	WTIMER1->CFG = 0x04; //Set as 32bit timer
+	WTIMER1->TAMR = 0x22; //Periodic Timer with interrupt
+	
+	// configure Stepper Reset Timer 
+	WTIMER2->CTL = 0x0202; // Disable A and B Timers
+	WTIMER2->CFG = 0x04; //Set as 32bit timer
+	WTIMER2->TAMR = 0x22; //Periodic Timer with interrupt	
 }
 
-void one_shot_delay(uint32_t delay)
-{	
-	WTIMER0->TAILR = delay;
-	WTIMER0->CTL = WTIMER0->CTL | 0x01; // Enable A Timer
-		while (WTIMER0->CTL != 0x00);
-}
+//void one_shot_delay(uint32_t delay) // delay in ms
+//{	
+//	WTIMER0->TAILR = delay;
+//	WTIMER0->CTL = WTIMER0->CTL | 0x01; // Enable A Timer
+//		while (WTIMER0->CTL != 0x00);
+//}
 
 // 32bit Stepper Timer
-void set_stepper_timer(uint16_t prescaler, uint32_t time)
+void set_stepper_timer(uint16_t prescaler, uint32_t ticks)
 {
-	
+	WTIMER1->TAPR = prescaler;
+	WTIMER1->TAILR = ticks;
 }
 
-// 16bit Stepper Reset Timer
-void set_stepper_reset_timer()
+void start_stepper_timer()
 {
-	
+	WTIMER1->CTL = WTIMER1->CTL | 0x01; // Enable A Timer
 }
 
-// 16bit Pulse Delay Timer
-void set_pulse_delay_timer()
+void stop_stepper_timer()
 {
+	WTIMER1->CTL = WTIMER1->CTL & ~0x01; // Disable A Timer
+}
+
+// 32bit Stepper Reset Timer
+void set_stepper_reset_timer(uint16_t prescaler, uint32_t ticks)
+{
+	WTIMER2->TAPR = prescaler;
+	WTIMER2->TAILR = ticks;
 	
+	WTIMER2->CTL = WTIMER2->CTL | 0x01; // Enable B Timer
+}
+
+void stop_stepper_reset_timer()
+{
+	WTIMER2->CTL = WTIMER2->CTL & ~0x01; // Disable B Timer
 }

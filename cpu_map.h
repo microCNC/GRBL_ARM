@@ -32,7 +32,7 @@
 
 #ifdef CPU_MAP_TM4C123GH6PM
 
-  #include "include/TI/TM4C123/TM4C123GH6PM.h"
+  #include "include/TM4C123/TM4C123GH6PM.h"
 	
 	// Board Specific Defines
 	#define F_CPU			80000000UL	
@@ -42,24 +42,36 @@
   #define SERIAL_TX			USART_UDRE_vect
 
   // Define step pulse output pins. NOTE: All step bit pins must be on the same port.
-  #define STEP_DDR				GPIOE->DIR
-  #define STEP_PORT				GPIOE->DATA
+	#define STEP_PORT					GPIOE
+	#define STEP_PORT_IRQN		GPIOE_IRQn
+	#define STEP_VALUE				STEP_PORT->DATA
+	#define STEP_DDR					STEP_PORT->DIR
+	#define STEP_ENABLE				STEP_PORT->DEN
+	#define STEP_POWER				STEP_PORT->DR8R
   #define X_STEP_BIT      1  // Uno Digital Pin 2
   #define Y_STEP_BIT      2  // Uno Digital Pin 3
   #define Z_STEP_BIT      3  // Uno Digital Pin 4
   #define STEP_MASK       ((1<<X_STEP_BIT)|(1<<Y_STEP_BIT)|(1<<Z_STEP_BIT)) // All step bits
 
   // Define step direction output pins. NOTE: All direction pins must be on the same port.
-  #define DIRECTION_DDR     GPIOD->DIR
-  #define DIRECTION_PORT    GPIOD->DATA
+	#define DIRECTION_PORT					GPIOD
+	#define DIRECTION_PORT_IRQN			GPIOD_IRQn
+	#define DIRECTION_VALUE					DIRECTION_PORT->DATA
+	#define DIRECTION_DDR						DIRECTION_PORT->DIR
+	#define DIRECTION_ENABLE				DIRECTION_PORT->DEN
+	#define DIRECTION_POWER					DIRECTION_PORT->DR8R
   #define X_DIRECTION_BIT   1  // Uno Digital Pin 5
   #define Y_DIRECTION_BIT   2  // Uno Digital Pin 6
   #define Z_DIRECTION_BIT   3  // Uno Digital Pin 7
   #define DIRECTION_MASK    ((1<<X_DIRECTION_BIT)|(1<<Y_DIRECTION_BIT)|(1<<Z_DIRECTION_BIT)) // All direction bits
 
-  // Define stepper driver enable/disable output pin.
-  #define STEPPERS_DISABLE_DDR    GPIOF->DIR
-  #define STEPPERS_DISABLE_PORT   GPIOF->DATA
+	// Define stepper driver enable/disable output pin.
+	#define STEPPERS_DISABLE_PORT					GPIOF
+	#define STEPPERS_DISABLE_PORT_IRQN		GPIOF_IRQn
+	#define STEPPERS_DISABLE_VALUE				STEPPERS_DISABLE_PORT->DATA
+	#define STEPPERS_DISABLE_DDR					STEPPERS_DISABLE_PORT->DIR
+	#define STEPPERS_DISABLE_ENABLE				STEPPERS_DISABLE_PORT->DEN
+	#define STEPPERS_DISABLE_POWER				STEPPERS_DISABLE_PORT->DR8R
   #define STEPPERS_DISABLE_BIT    1  // Uno Digital Pin 8
   #define STEPPERS_DISABLE_MASK   (1<<STEPPERS_DISABLE_BIT)
 
@@ -114,6 +126,17 @@
   #define PIN_CYCLE_START  2  // Uno Analog Pin 2
   #define PINOUT_MASK ((1<<PIN_RESET)|(1<<PIN_FEED_HOLD)|(1<<PIN_CYCLE_START))				
   
+	// Define probe switch input pin.
+	#define PROBE_PORT					GPIOC
+	#define PROBE_PORT_IRQN			GPIOC_IRQn
+	#define PROBE_VALUE					PROBE_PORT->DATA
+	#define PROBE_DDR						PROBE_PORT->DIR
+	#define PROBE_PULLUP		  	PROBE_PORT->PUR
+	#define PROBE_ENABLE		  	PROBE_PORT->DEN
+	#define PROBE_INT_HANDLER   GPIOC_Handler
+	#define PROBE_BIT 5 // Uno Analog Pin 5
+	#define PROBE_MASK (1<<PROBE_BIT)
+
   #ifdef VARIABLE_SPINDLE
     // Advanced Configuration Below You should not need to touch these variables
     #define TCCRA_REGISTER	 TCCR2A

@@ -106,7 +106,7 @@ uint8_t system_execute_line(char *line)
 		case 0 : report_grbl_help(); break;
     case '#' : // Print gcode parameters
       if ( line[++char_counter] != 0 ) { return(STATUS_UNSUPPORTED_STATEMENT); }
-      else { report_gcode_parameters(); }
+      else { report_gcode_modes(); }
       break;
     case 'G' : // Prints gcode parser state
       if ( line[++char_counter] != 0 ) { return(STATUS_UNSUPPORTED_STATEMENT); }

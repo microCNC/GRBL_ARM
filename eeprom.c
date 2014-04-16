@@ -1,14 +1,14 @@
 //
 #include "system.h"
 
-uint32_t eeprom_get_word( unsigned int addr )
+uint32_t eeprom_get_word( uint32_t addr )
 {
 	do {} while( EEPROM->EEDONE != 0); // Wait for completion of previous write.
 	EEPROM->EEBLOCK = addr; // Set EEPROM address register.
 	return EEPROM->EERDWR; // Return the byte read from EEPROM.
 }
 
-void eeprom_put_word( unsigned int addr, uint32_t new_value )
+void eeprom_put_word( uint32_t addr, uint32_t new_value )
 {
 	uint32_t old_value; // Old EEPROM value.
 	uint32_t diff_mask; // Difference mask, i.e. old value XOR new value.

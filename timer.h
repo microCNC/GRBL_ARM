@@ -23,10 +23,17 @@
 
 #include <inttypes.h>  
 
-
 void timer_init(void);
 
 // This is a one shot count down BLOCKING timer to create a delay in ms
 void one_shot_delay(uint32_t delay);
 
+void set_stepper_timer(uint16_t prescaler, uint32_t hertz);
+void start_stepper_timer(void);
+void stop_stepper_timer(void);
+void set_stepper_reset_timer(uint16_t prescaler, uint32_t hertz);
+void stop_stepper_reset_timer(void);
+void set_pulse_delay_timer(uint16_t prescaler, uint32_t hertz);
+void stop_pulse_delay_timer(void);
+	
 #endif
