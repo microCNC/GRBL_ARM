@@ -3,50 +3,38 @@
 
 uint32_t eeprom_get_word( uint32_t addr )
 {
+   uint32_t block;
+   uint32_t offset;
+
 	do {} while( EEPROM->EEDONE != 0); // Wait for completion of previous write.
-	EEPROM->EEBLOCK = addr; // Set EEPROM address register.
-	return EEPROM->EERDWR; // Return the byte read from EEPROM.
+
+   // convert address into block and offset
+   block = floor(addr / 16);
+   offset = (addr % 16);
+
+   EEPROM->EEBLOCK = block; // Set EEPROM block address register.
+   EEPROM->EEOFFSET = offset;
+
+   return EEPROM->EERDWR; // Return the byte read from EEPROM.
 }
 
 void eeprom_put_word( uint32_t addr, uint32_t new_value )
 {
-	uint32_t old_value; // Old EEPROM value.
-	uint32_t diff_mask; // Difference mask, i.e. old value XOR new value.
+   uint32_t block;
+   uint32_t offset;
 
-	cli(); // Ensure atomic operation for the write operation.
+	do {} while( EEPROM->EEDONE != 0 ); // Wait for completion of previous write.
 	
-	do {} while( !EEPROM->EEDONE ); // Wait for completion of previous write.
-	
-	EEPROM->EEBLOCK = addr; // Set EEPROM address register.
-	old_value = EEPROM->EERDWR; // Get old EEPROM value.
-	diff_mask = old_value ^ new_value; // Get bit differences.
-	
-	// Check if any bits are changed to '1' in the new value.
-	if( diff_mask & new_value ) {
-		// Now we know that _some_ bits need to be erased to '1'.
-		
-		// Check if any bits in the new value are '0'.
-		if( new_value != 0xff ) {
-			// Now we know that some bits need to be programmed to '0' also.
-			
-			EEPROM->EERDWR = new_value; // Set EEPROM data register.
-		}
-	} else {
-		// Now we know that _no_ bits need to be erased to '1'.
-		
-		// Check if any bits are changed from '1' in the old value.
-		if( diff_mask ) {
-			// Now we know that _some_ bits need to the programmed to '0'.
-			
-			EEPROM->EERDWR = new_value;   // Set EEPROM data register.
-		}
-	}
-	
-	sei(); // Restore interrupt flag state.
+   // convert address into block and offset
+   block = floor(addr / 16);
+   offset = (addr % 16);
+
+// need an if to check if the current block = the new block
+
+   EEPROM->EEBLOCK = block; // Set EEPROM block address register.
+   EEPROM->EEOFFSET = offset; // check register name
+   EEPROM->EERDWR = new_value;   // Set EEPROM data register.
 }
-
-// Extensions added as part of Grbl 
-
 
 void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size) {
 	
@@ -66,7 +54,7 @@ void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsi
 		}
 	}
 
-int memcpy_from_eeprom_with_checksum(uint32_t *destination, uint32_t source, uint32_t size) {
+int memcpy_from_eeprom_with_checksum(uint8_t *destination, uint32_t source, uint32_t size) {
   unsigned char data, checksum = 0;	
 	
 	uint32_t add_block = floor(source);
