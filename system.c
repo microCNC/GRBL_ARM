@@ -2,6 +2,7 @@
   system.c - Handles system level commands and real-time processes
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2014 Sungeun K. Jeon  
 
   Grbl is free software: you can redistribute it and/or modify
@@ -28,25 +29,22 @@
 
 void system_init(void) 
 {
-	// init all GPIO Clocks and HP Buses
-	
-	
-	SYSCTL->RCGCGPIO |= (1 << PINOUT_PORT_IRQN);			// enable clock
-	SYSCTL->GPIOHBCTL |= (1 << PINOUT_PORT_IRQN);			// enable high performace bus
-	
-	PINOUT_DDR &= ~PINOUT_MASK;								// make input pin
-  PINOUT_ENABLE |= PINOUT_MASK;         		// make digital pin
+		
+	PINOUT_PORT->DIR &= ~PINOUT_MASK;								// make input pin
+  PINOUT_PORT->DEN |= PINOUT_MASK;         		// make digital pin
 	
 	//set interrupts
 	
   PINOUT_PORT->IS  &= ~PINOUT_MASK;        // make bit edge sensitive
   PINOUT_PORT->IBE &= ~PINOUT_MASK;        // trigger is controlled by IEV
   PINOUT_PORT->IEV &= ~PINOUT_MASK;        // Falling edge trigger
-  PINOUT_PORT->ICR = PINOUT_MASK;          // clear any prior interrupt
-  PINOUT_PORT->IM  |= PINOUT_MASK;         // set interrupt on ports
+  PINOUT_PORT->ICR |= PINOUT_MASK;          // clear any prior interrupt
+  PINOUT_PORT->IM |= PINOUT_MASK;         // set interrupt on ports
 	
-	NVIC_SetPriority(PINOUT_PORT_IRQN, 6);				// set interrupt priority to 6
+  NVIC_SetPriority(PINOUT_PORT_IRQN, 6);				// set interrupt priority to 6
   NVIC_EnableIRQ(PINOUT_PORT_IRQN);							// enable IRQ
+  
+  //
 }
 
 
@@ -62,10 +60,10 @@ void PINOUT_INT_HANDLER(void)
       mc_reset();
 			PINOUT_PORT->ICR = (1<<PIN_RESET); // Clear Pending Interrupt Register
     } else if (bit_isfalse(PINOUT_PORT->RIS,bit(PIN_FEED_HOLD))) {
-      sys.execute |= EXEC_FEED_HOLD;
+      bit_true_atomic(sys.execute, EXEC_FEED_HOLD);
 			PINOUT_PORT->ICR = (1<<PIN_FEED_HOLD); // Clear Pending Interrupt Register
     } else if (bit_isfalse(PINOUT_PORT->RIS,bit(PIN_CYCLE_START))) {
-      sys.execute |= EXEC_CYCLE_START;
+      bit_true_atomic(sys.execute, EXEC_CYCLE_START);
 			PINOUT_PORT->ICR = (1<<PIN_CYCLE_START); // Clear Pending Interrupt Register
     }
   }
@@ -103,17 +101,18 @@ uint8_t system_execute_line(char *line)
   uint8_t helper_var = 0; // Helper variable
   float parameter, value;
   switch( line[char_counter] ) {
-		case 0 : report_grbl_help(); break;
-    case '#' : // Print gcode parameters
-      if ( line[++char_counter] != 0 ) { return(STATUS_UNSUPPORTED_STATEMENT); }
-      else { report_gcode_modes(); }
+    case 0 : report_grbl_help(); break;
+    case '$' : // Prints Grbl settings
+      if ( line[++char_counter] != 0 ) { return(STATUS_INVALID_STATEMENT); }
+      if ( sys.state & (STATE_CYCLE | STATE_HOLD) ) { return(STATUS_IDLE_ERROR); } // Block during cycle. Takes too long to print.
+      else { report_grbl_settings(); }
       break;
     case 'G' : // Prints gcode parser state
-      if ( line[++char_counter] != 0 ) { return(STATUS_UNSUPPORTED_STATEMENT); }
+      if ( line[++char_counter] != 0 ) { return(STATUS_INVALID_STATEMENT); }
       else { report_gcode_modes(); }
-      break;
-		case 'C' : // Set check g-code mode [IDLE/CHECK]
-      if ( line[++char_counter] != 0 ) { return(STATUS_UNSUPPORTED_STATEMENT); }
+      break;   
+    case 'C' : // Set check g-code mode [IDLE/CHECK]
+      if ( line[++char_counter] != 0 ) { return(STATUS_INVALID_STATEMENT); }
       // Perform reset when toggling off. Check g-code mode should only work if Grbl
       // is idle and ready, regardless of alarm locks. This is mainly to keep things
       // simple and consistent.
@@ -127,7 +126,7 @@ uint8_t system_execute_line(char *line)
       }
       break; 
     case 'X' : // Disable alarm lock [ALARM]
-      if ( line[++char_counter] != 0 ) { return(STATUS_UNSUPPORTED_STATEMENT); }
+      if ( line[++char_counter] != 0 ) { return(STATUS_INVALID_STATEMENT); }
       if (sys.state == STATE_ALARM) { 
         report_feedback_message(MESSAGE_ALARM_UNLOCK);
         sys.state = STATE_IDLE;
@@ -150,26 +149,23 @@ uint8_t system_execute_line(char *line)
       // Block any system command that requires the state as IDLE/ALARM. (i.e. EEPROM, homing)
       if ( !(sys.state == STATE_IDLE || sys.state == STATE_ALARM) ) { return(STATUS_IDLE_ERROR); }
       switch( line[char_counter] ) {
-        case '$' : // Prints Grbl settings
-          if ( line[++char_counter] != 0 ) { return(STATUS_UNSUPPORTED_STATEMENT); }
-          else { report_grbl_settings(); }
-          break;              
-        case 'H' : // Perform homing cycle
+        case '#' : // Print Grbl NGC parameters
+          if ( line[++char_counter] != 0 ) { return(STATUS_INVALID_STATEMENT); }
+          else { report_ngc_parameters(); }
+          break;          
+        case 'H' : // Perform homing cycle [IDLE/ALARM]
           if (bit_istrue(settings.flags,BITFLAG_HOMING_ENABLE)) { 
             // Only perform homing if Grbl is idle or lost.
             mc_homing_cycle(); 
             if (!sys.abort) { system_execute_startup(line); } // Execute startup scripts after successful homing.
           } else { return(STATUS_SETTING_DISABLED); }
           break;
-        case 'I' : // Print or store build info.
+        case 'I' : // Print or store build info. [IDLE/ALARM]
           if ( line[++char_counter] == 0 ) { 
-            if (!(settings_read_build_info(line))) {
-              report_status_message(STATUS_SETTING_READ_FAIL);
-            } else {
-              report_build_info(line);
-            }
-          } else { // Store startup line
-            if(line[char_counter++] != '=') { return(STATUS_UNSUPPORTED_STATEMENT); }
+            settings_read_build_info(line);
+            report_build_info(line);
+          } else { // Store startup line [IDLE/ALARM]
+            if(line[char_counter++] != '=') { return(STATUS_INVALID_STATEMENT); }
             helper_var = char_counter; // Set helper variable as counter to start of user info line.
             do {
               line[char_counter-helper_var] = line[char_counter];
@@ -177,7 +173,7 @@ uint8_t system_execute_line(char *line)
             settings_store_build_info(line);
           }
           break;                 
-        case 'N' : // Startup lines. 
+        case 'N' : // Startup lines. [IDLE/ALARM]
           if ( line[++char_counter] == 0 ) { // Print startup lines
             for (helper_var=0; helper_var < N_STARTUP_LINE; helper_var++) {
               if (!(settings_read_startup_line(helper_var, line))) {
@@ -187,14 +183,14 @@ uint8_t system_execute_line(char *line)
               }
             }
             break;
-          } else { // Store startup line
-						if (sys.state != STATE_IDLE) { return(STATUS_IDLE_ERROR); } // Store only when idle.
+          } else { // Store startup line [IDLE Only] Prevents motion during ALARM.
+            if (sys.state != STATE_IDLE) { return(STATUS_IDLE_ERROR); } // Store only when idle.
             helper_var = true;  // Set helper_var to flag storing method. 
             // No break. Continues into default: to read remaining command characters.
           }
-        default :  // Storing setting methods
+        default :  // Storing setting methods [IDLE/ALARM]
           if(!read_float(line, &char_counter, &parameter)) { return(STATUS_BAD_NUMBER_FORMAT); }
-          if(line[char_counter++] != '=') { return(STATUS_UNSUPPORTED_STATEMENT); }
+          if(line[char_counter++] != '=') { return(STATUS_INVALID_STATEMENT); }
           if (helper_var) { // Store startup line
             // Prepare sending gcode block to gcode parser by shifting all characters
             helper_var = char_counter; // Set helper variable as counter to start of gcode block
@@ -210,7 +206,7 @@ uint8_t system_execute_line(char *line)
             }
           } else { // Store global setting.
             if(!read_float(line, &char_counter, &value)) { return(STATUS_BAD_NUMBER_FORMAT); }
-            if(line[char_counter] != 0) { return(STATUS_UNSUPPORTED_STATEMENT); }
+            if(line[char_counter] != 0) { return(STATUS_INVALID_STATEMENT); }
             return(settings_store_global_setting(parameter, value));
           }
       }    

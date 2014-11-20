@@ -2,6 +2,7 @@
   limits.c - code pertaining to limit-switches and performing the homing cycle
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2012-2014 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
@@ -34,22 +35,21 @@
 
 void limits_init() 
 {
-	SYSCTL->RCGCGPIO |= (1 << LIMIT_PORT_IRQN);			// enable clock
-	SYSCTL->GPIOHBCTL |= (1 << LIMIT_PORT_IRQN);			// enable high performace bus
 	
-	PINOUT_DDR &= ~PINOUT_MASK;        // make input pin
-  PINOUT_ENABLE |= PINOUT_MASK;         // make digital pin
+	LIMIT_DDR &= ~LIMIT_MASK;        // make input pin
+	LIMIT_ENABLE |= LIMIT_MASK;         // make digital pin
 	
 	//set interrupts
 	
-  LIMIT_PORT->IS  &= ~PINOUT_MASK;        // make bit edge sensitive
-  LIMIT_PORT->IBE &= ~PINOUT_MASK;        // trigger is controlled by IEV
-  LIMIT_PORT->IEV |= PINOUT_MASK;         // rising edge trigger
-  LIMIT_PORT->ICR |= PINOUT_MASK;         // clear any prior interrupt
-  LIMIT_PORT->IM  |= PINOUT_MASK;         // unmask interrupt
+  LIMIT_PORT->IS  &= ~LIMIT_MASK;        // make bit edge sensitive
+  LIMIT_PORT->IBE &= ~LIMIT_MASK;        // trigger is controlled by IEV
+  LIMIT_PORT->IEV |= LIMIT_MASK;         // rising edge trigger
+  LIMIT_PORT->ICR |= LIMIT_MASK;         // clear any prior interrupt
+  LIMIT_PORT->IM  |= LIMIT_MASK;         // unmask interrupt
 	
-	NVIC_SetPriority(LIMIT_PORT_IRQN, 7);				// set interrupt priority to 6
+  NVIC_SetPriority(LIMIT_PORT_IRQN, 6);				// set interrupt priority to 6
   NVIC_EnableIRQ(LIMIT_PORT_IRQN);							// enable IRQ2
+		
 }
 
 
@@ -86,7 +86,7 @@ void LIMIT_INT_HANDLER(void)
   if (sys.state != STATE_ALARM) { 
     if (bit_isfalse(sys.execute,EXEC_ALARM)) {
       mc_reset(); // Initiate system kill.
-      sys.execute |= (EXEC_ALARM | EXEC_CRIT_EVENT); // Indicate hard limit critical event
+      bit_true_atomic(sys.execute,(EXEC_ALARM | EXEC_CRIT_EVENT)); // Indicate hard limit critical event
     }
   }
 }  
@@ -208,7 +208,7 @@ void limits_go_home(uint8_t cycle_mask)
     // do not move them.
     // NOTE: settings.max_travel[] is stored as a negative value.
     if (cycle_mask & bit(idx)) {
-      if ( settings.homing_dir_mask & get_direction_mask(idx) ) {
+      if ( settings.homing_dir_mask ) {
         target[idx] = settings.homing_pulloff+settings.max_travel[idx];
         sys.position[idx] = lround(settings.max_travel[idx]*settings.steps_per_mm[idx]);
       } else {
@@ -229,7 +229,7 @@ void limits_go_home(uint8_t cycle_mask)
   // Initiate pull-off using main motion control routines. 
   // TODO : Clean up state routines so that this motion still shows homing state.
   sys.state = STATE_QUEUED;
-  sys.execute |= EXEC_CYCLE_START;
+  bit_true_atomic(sys.execute, EXEC_CYCLE_START);
   protocol_execute_runtime();
   protocol_buffer_synchronize(); // Complete pull-off motion.
   
@@ -250,7 +250,7 @@ void limits_soft_check(float *target)
       // workspace volume so just come to a controlled stop so position is not lost. When complete
       // enter alarm mode.
       if (sys.state == STATE_CYCLE) {
-        sys.execute |= EXEC_FEED_HOLD;
+        bit_true_atomic(sys.execute, EXEC_FEED_HOLD);
         do {
           protocol_execute_runtime();
           if (sys.abort) { return; }
@@ -258,7 +258,7 @@ void limits_soft_check(float *target)
       }
       
       mc_reset(); // Issue system reset and ensure spindle and coolant are shutdown.
-      sys.execute |= (EXEC_ALARM | EXEC_CRIT_EVENT); // Indicate soft limit critical event
+      bit_true_atomic(sys.execute, (EXEC_ALARM | EXEC_CRIT_EVENT)); // Indicate soft limit critical event
       protocol_execute_runtime(); // Execute to enter critical event loop and system abort
       return;
     

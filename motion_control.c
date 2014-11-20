@@ -97,16 +97,15 @@ void mc_line(float *target, float feed_rate, uint8_t invert_feed_rate)
 // of each segment is configured in settings.arc_tolerance, which is defined to be the maximum normal
 // distance from segment to the circle when the end points both lie on the circle.
 #ifdef USE_LINE_NUMBERS
-void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8_t axis_1, 
-  uint8_t axis_linear, float feed_rate, uint8_t invert_feed_rate, float radius, uint8_t isclockwise, int32_t line_number)
+  void mc_arc(float *position, float *target, float *offset, float radius, float feed_rate, 
+    uint8_t invert_feed_rate, uint8_t axis_0, uint8_t axis_1, uint8_t axis_linear, int32_t line_number)
 #else
-void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8_t axis_1, 
-  uint8_t axis_linear, float feed_rate, uint8_t invert_feed_rate, float radius, uint8_t isclockwise)
+  void mc_arc(float *position, float *target, float *offset, float radius, float feed_rate,
+    uint8_t invert_feed_rate, uint8_t axis_0, uint8_t axis_1, uint8_t axis_linear)
 #endif
-{      
+{
   float center_axis0 = position[axis_0] + offset[axis_0];
   float center_axis1 = position[axis_1] + offset[axis_1];
-  float linear_travel = target[axis_linear] - position[axis_linear];
   float r_axis0 = -offset[axis_0];  // Radius vector from center to current location
   float r_axis1 = -offset[axis_1];
   float rt_axis0 = target[axis_0] - center_axis0;
@@ -114,24 +113,18 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
   
   // CCW angle between position and target from circle center. Only one atan2() trig computation required.
   float angular_travel = atan2(r_axis0*rt_axis1-r_axis1*rt_axis0, r_axis0*rt_axis0+r_axis1*rt_axis1);
-	
-	float millimeters_of_travel;
-	uint16_t segments;
-	
-  if (isclockwise) { // Correct atan2 output per direction
-    if (angular_travel >= 0) { angular_travel -= 2.0f*M_PI; }
+  if (gc_state.modal.motion == MOTION_MODE_CW_ARC) { // Correct atan2 output per direction
+    if (angular_travel >= 0) { angular_travel -= 2*M_PI; }
   } else {
-    if (angular_travel <= 0) { angular_travel += 2.0f*M_PI; }
+    if (angular_travel <= 0) { angular_travel += 2*M_PI; }
   }
 
   // NOTE: Segment end points are on the arc, which can lead to the arc diameter being smaller by up to
   // (2x) settings.arc_tolerance. For 99% of users, this is just fine. If a different arc segment fit
   // is desired, i.e. least-squares, midpoint on arc, just change the mm_per_arc_segment calculation.
-  // Computes: mm_per_arc_segment = sqrt(4*arc_tolerance*(2*radius-arc_tolerance)),
-  //           segments = millimeters_of_travel/mm_per_arc_segment
-  millimeters_of_travel = hypot(angular_travel*radius, fabs(linear_travel));
-  segments = floor(0.5f*millimeters_of_travel/
-                          sqrt(settings.arc_tolerance*(2.0f*radius - settings.arc_tolerance)) );
+  // For the intended uses of Grbl, this value shouldn't exceed 2000 for the strictest of cases.
+  uint16_t segments = floor(fabs(0.5*angular_travel*radius)/
+                          sqrt(settings.arc_tolerance*(2*radius - settings.arc_tolerance)) );
   
   if (segments) { 
 		float theta_per_segment;
@@ -139,7 +132,6 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
 		float cos_T;
 		float sin_T;
 		
-		float arc_target[N_AXIS];
     float sin_Ti;
     float cos_Ti;
     float r_axisi;
@@ -152,7 +144,7 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
     if (invert_feed_rate) { feed_rate *= segments; }
    
     theta_per_segment = angular_travel/segments;
-    linear_per_segment = linear_travel/segments;
+    linear_per_segment = (target[axis_linear] - position[axis_linear])/segments;
 
     /* Vector rotation by transformation matrix: r is the original vector, r_T is the rotated vector,
        and phi is the angle of rotation. Solution approach by Jens Geisler.
@@ -161,16 +153,18 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
        
        For arc generation, the center of the circle is the axis of rotation and the radius vector is 
        defined from the circle center to the initial position. Each line segment is formed by successive
-       vector rotations. Single precision values can accumulate error greater than tool precision in some
+       vector rotations. Single precision values can accumulate error greater than tool precision in rare
        cases. So, exact arc path correction is implemented. This approach avoids the problem of too many very
        expensive trig operations [sin(),cos(),tan()] which can take 100-200 usec each to compute.
   
        Small angle approximation may be used to reduce computation overhead further. A third-order approximation
-       (second order sin() has too much error) holds for nearly all CNC applications, except for possibly very
-       small radii (~0.5mm). In other words, theta_per_segment would need to be greater than 0.25 rad(14 deg) 
-       and N_ARC_CORRECTION would need to be large to cause an appreciable drift error (>5% of radius, for very
-       small radii, 5% of 0.5mm is very, very small). N_ARC_CORRECTION~=20 should be more than small enough to 
-       correct for numerical drift error. Also decreasing the tolerance will improve the approximation too.
+       (second order sin() has too much error) holds for most, if not, all CNC applications. Note that this 
+       approximation will begin to accumulate a numerical drift error when theta_per_segment is greater than 
+       ~0.25 rad(14 deg) AND the approximation is successively used without correction several dozen times. This
+       scenario is extremely unlikely, since segment lengths and theta_per_segment are automatically generated
+       and scaled by the arc tolerance setting. Only a very large arc tolerance setting, unrealistic for CNC 
+       applications, would cause this numerical drift error. However, it is best to set N_ARC_CORRECTION from a
+       low of ~4 to a high of ~20 or so to avoid trig operations while keeping arc generation accurate.
        
        This approximation also allows mc_arc to immediately insert a line segment into the planner 
        without the initial overhead of computing cos() or sin(). By the time the arc needs to be applied
@@ -181,9 +175,7 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
     cos_T = 2.0f - theta_per_segment*theta_per_segment;
     sin_T = theta_per_segment*0.16666667f*(cos_T + 4.0f);
     cos_T *= 0.5f;
-  
-    // Initialize the linear axis
-    arc_target[axis_linear] = position[axis_linear];
+
   
     for (i = 1; i<segments; i++) { // Increment (segments-1)
       
@@ -204,14 +196,14 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
       }
   
       // Update arc_target location
-      arc_target[axis_0] = center_axis0 + r_axis0;
-      arc_target[axis_1] = center_axis1 + r_axis1;
-      arc_target[axis_linear] += linear_per_segment;
+      position[axis_0] = center_axis0 + r_axis0;
+      position[axis_1] = center_axis1 + r_axis1;
+      position[axis_linear] += linear_per_segment;
       
       #ifdef USE_LINE_NUMBERS
-      mc_line(arc_target, feed_rate, invert_feed_rate, line_number);
+        mc_line(position, feed_rate, invert_feed_rate, line_number);
       #else
-      mc_line(arc_target, feed_rate, invert_feed_rate);
+        mc_line(position, feed_rate, invert_feed_rate);
       #endif
       
       // Bail mid-circle on system abort. Runtime command check already performed by mc_line.
@@ -220,9 +212,9 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
   }
   // Ensure last segment arrives at target location.
   #ifdef USE_LINE_NUMBERS
-  mc_line(target, feed_rate, invert_feed_rate, line_number);
+    mc_line(target, feed_rate, invert_feed_rate, line_number);
   #else
-  mc_line(target, feed_rate, invert_feed_rate);
+    mc_line(target, feed_rate, invert_feed_rate);
   #endif
 }
 
@@ -230,6 +222,8 @@ void mc_arc(float *position, float *target, float *offset, uint8_t axis_0, uint8
 // Execute dwell in seconds.
 void mc_dwell(float seconds) 
 {
+   if (sys.state == STATE_CHECK_MODE) { return; }
+   
    uint16_t i = floor(1000/DWELL_TIME_STEP*seconds);
    protocol_buffer_synchronize();
    delay_ms(floor(1000*seconds-i*DWELL_TIME_STEP)); // Delay millisecond remainder.
@@ -288,58 +282,71 @@ void mc_probe_cycle(float *target, float feed_rate, uint8_t invert_feed_rate, in
 void mc_probe_cycle(float *target, float feed_rate, uint8_t invert_feed_rate)
 #endif
 {
-	uint8_t i;
-	
-  if (sys.state != STATE_CYCLE) protocol_auto_cycle_start();
-  protocol_buffer_synchronize(); // Finish all queued commands
+  // TODO: Need to update this cycle so it obeys a non-auto cycle start.
+  if (sys.state == STATE_CHECK_MODE) { return; }
+
+  // Finish all queued commands and empty planner buffer before starting probe cycle.
+  protocol_buffer_synchronize();
+  uint8_t auto_start_state = sys.auto_start; // Store run state
+  
+  // After syncing, check if probe is already triggered. If so, halt and issue alarm.
+  if (probe_get_state()) { 
+    bit_true_atomic(sys.execute, EXEC_CRIT_EVENT);
+    protocol_execute_runtime();
+  }
   if (sys.abort) { return; } // Return if system reset has been issued.
 
-  // Perform probing cycle. Planner buffer should be empty at this point.
+  // Setup and queue probing motion. Auto cycle-start should not start the cycle.
   #ifdef USE_LINE_NUMBERS
-  mc_line(target, feed_rate, invert_feed_rate, line_number);
+    mc_line(target, feed_rate, invert_feed_rate, line_number);
   #else
-  mc_line(target, feed_rate, invert_feed_rate);
+    mc_line(target, feed_rate, invert_feed_rate);
   #endif
-
-  //TODO - make sure the probe isn't already closed
+  
+  // Activate the probing monitor in the stepper module.
   sys.probe_state = PROBE_ACTIVE;
 
-  sys.execute |= EXEC_CYCLE_START;
+  // Perform probing cycle. Wait here until probe is triggered or motion completes.
+  bit_true_atomic(sys.execute, EXEC_CYCLE_START);
   do {
     protocol_execute_runtime(); 
     if (sys.abort) { return; } // Check for system abort
   } while ((sys.state != STATE_IDLE) && (sys.state != STATE_QUEUED));
 
-  if (sys.probe_state == PROBE_ACTIVE) { sys.execute |= EXEC_CRIT_EVENT; }
+  // Probing motion complete. If the probe has not been triggered, error out.
+  if (sys.probe_state == PROBE_ACTIVE) { bit_true_atomic(sys.execute, EXEC_CRIT_EVENT); }
   protocol_execute_runtime();   // Check and execute run-time commands
   if (sys.abort) { return; } // Check for system abort
 
-  //Prep the new target based on the position that the probe triggered
-  for(i=0; i<N_AXIS; ++i){
-    target[i] = (float)sys.probe_position[i]/settings.steps_per_mm[i];
+  // Reset the stepper and planner buffers to remove the remainder of the probe motion.
+  st_reset(); // Reest step segment buffer.
+  plan_reset(); // Reset planner buffer. Zero planner positions. Ensure probing motion is cleared.
+  plan_sync_position(); // Sync planner position to current machine position.
+  
+  // Pull-off triggered probe to the trigger location since we had to decelerate a little beyond
+  // it to stop the machine in a controlled manner. 
+  uint8_t idx;
+  for(idx=0; idx<N_AXIS; idx++){
+    // NOTE: The target[] variable updated here will be sent back and synced with the g-code parser.
+    target[idx] = (float)sys.probe_position[idx]/settings.steps_per_mm[idx];
   }
-
-  protocol_execute_runtime();
-
-  st_reset(); // Immediately force kill steppers and reset step segment buffer.
-  plan_reset(); // Reset planner buffer. Zero planner positions. Ensure homing motion is cleared.
-  plan_sync_position(); // Sync planner position to current machine position for pull-off move.
-
   #ifdef USE_LINE_NUMBERS
-  mc_line(target, feed_rate, invert_feed_rate, line_number); // Bypass mc_line(). Directly plan homing motion.
+    mc_line(target, feed_rate, invert_feed_rate, line_number);
   #else
-  mc_line(target, feed_rate, invert_feed_rate); // Bypass mc_line(). Directly plan homing motion.
+    mc_line(target, feed_rate, invert_feed_rate);
   #endif
 
-  sys.execute |= EXEC_CYCLE_START;
-  protocol_buffer_synchronize(); // Complete pull-off motion.
-  if (sys.abort) { return; } // Did not complete. Alarm state set by mc_alarm.
+  // Execute pull-off motion and wait until it completes.
+  bit_true_atomic(sys.execute, EXEC_CYCLE_START);
+  protocol_buffer_synchronize(); 
+  if (sys.abort) { return; } // Return if system reset has been issued.
 
-  // Gcode parser position was circumvented by the this routine, so sync position now.
-  gc_sync_position();
+  sys.auto_start = auto_start_state; // Restore run state before returning
 
-  //TODO - ouput a mandatory status update with the probe position.  What if another was recently sent?
-  report_probe_parameters();
+  #ifdef MESSAGE_PROBE_COORDINATES
+    // All done! Output the probe position as message.
+    report_probe_parameters();
+  #endif
 }
 
 
@@ -352,7 +359,7 @@ void mc_reset()
 {
   // Only this function can set the system reset. Helps prevent multiple kill calls.
   if (bit_isfalse(sys.execute, EXEC_RESET)) {
-    sys.execute |= EXEC_RESET;
+    bit_true_atomic(sys.execute, EXEC_RESET);
 
     // Kill spindle and coolant.   
     spindle_stop();
@@ -363,7 +370,7 @@ void mc_reset()
     // the steppers enabled by avoiding the go_idle call altogether, unless the motion state is
     // violated, by which, all bets are off.
     if (sys.state & (STATE_CYCLE | STATE_HOLD | STATE_HOMING)) {
-      sys.execute |= EXEC_ALARM; // Flag main program to execute alarm state.
+      bit_true_atomic(sys.execute, EXEC_ALARM); // Flag main program to execute alarm state.
       st_go_idle(); // Force kill steppers. Position has likely been lost.
     }
   }

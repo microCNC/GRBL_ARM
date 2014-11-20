@@ -2,6 +2,7 @@
   nuts_bolts.c - Shared functions
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2011-2014 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
@@ -30,7 +31,7 @@
 // Scientific notation is officially not supported by g-code, and the 'E' character may
 // be a g-code word on some CNC systems. So, 'E' notation will not be recognized. 
 // NOTE: Thanks to Radu-Eosif Mihailescu for identifying the issues with using strtod().
-int read_float(char *line, uint8_t *char_counter, float *float_ptr)                  
+uint8_t read_float(char *line, uint8_t *char_counter, float *float_ptr)                  
 {
   char *ptr = line + *char_counter;
   unsigned char c;
@@ -136,14 +137,5 @@ void delay_us(uint32_t us)
 }
 
 
-// Returns direction mask according to Grbl internal axis indexing.
-uint8_t get_direction_mask(uint8_t axis_idx)
-{
-  uint8_t axis_mask = 0;
-  switch( axis_idx ) {
-    case X_AXIS: axis_mask = (1<<X_DIRECTION_BIT); break;
-    case Y_AXIS: axis_mask = (1<<Y_DIRECTION_BIT); break;
-    case Z_AXIS: axis_mask = (1<<Z_DIRECTION_BIT); break;
-  }
-  return(axis_mask);
-}
+// Simple hypotenuse computation function.
+float hypot_f(float x, float y) { return(sqrt(x*x + y*y)); }

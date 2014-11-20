@@ -1,294 +1,507 @@
 /*
-* Copyright (c) 2012, Mauro Scomparin
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*     * Neither the name of Mauro Scomparin nor the
-*       names of its contributors may be used to endorse or promote products
-*       derived from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY Mauro Scomparin ``AS IS'' AND ANY
-* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-* DISCLAIMED. IN NO EVENT SHALL Mauro Scomparin BE LIABLE FOR ANY
-* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-* (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-* ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*
-* File:			LM4F_startup.c.
-* Author:		Mauro Scomparin <http://scompoprojects.worpress.com>.
-* Version:		1.0.0.
-* Description:	LM4F120H5QR startup code.
+  startup_TM4C123.c - Startup file for TM4C123 Microcontrollers
+  Part of Grbl
+  
+  Copyright (c) 2014 Rob Brown
+
+  Grbl is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Grbl is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//-----------------------------------------------------------------------------
-// 							 Functions declarations
-//-----------------------------------------------------------------------------
+#include <stdint.h>
+#include <stdlib.h>
 
-// Main should be defined on your main file so it's extern.
-extern int main(void);
-// rst_handler contains the code to run on reset.
-void rst_handler(void);
-// nmi_handler it's the code for an non maskerable interrupt.
-void nmi_handler(void);
-// this is just the default handler.
-void empty_def_handler(void);
-// this is the code for an hard fault.
-void hardfault_handler(void);
+/*----------Macro definition--------------------------------------------------*/
+#define WEAK __attribute__ ((weak))
 
-//-----------------------------------------------------------------------------
-// 						     Variables declarations
-//-----------------------------------------------------------------------------
+/*----------Declaration of the default fault handlers-------------------------*/
+/* System exception vector handler */
+__attribute__ ((used))
+void WEAK  Reset_Handler(void);
+void WEAK  NMI_Handler(void);
+void WEAK  HardFault_Handler(void);
+void WEAK  MemManage_Handler(void);
+void WEAK  BusFault_Handler(void);
+void WEAK  UsageFault_Handler(void);
+void WEAK  SVC_Handler(void);
+void WEAK  DebugMon_Handler(void);
+void WEAK  PendSV_Handler(void);
+void WEAK  SysTick_Handler(void);
+void WEAK  GPIOPortA_IRQHandler(void);
+void WEAK  GPIOPortB_IRQHandler(void);
+void WEAK  GPIOPortC_IRQHandler(void);
+void WEAK  GPIOPortD_IRQHandler(void);
+void WEAK  GPIOPortE_IRQHandler(void);
+void WEAK  UART0_IRQHandler(void);
+void WEAK  UART1_IRQHandler(void);
+void WEAK  SSI0_IRQHandler(void);
+void WEAK  I2C0_IRQHandler(void);
+void WEAK  PWMFault_IRQHandler(void);
+void WEAK  PWMGen0_IRQHandler(void);
+void WEAK  PWMGen1_IRQHandler(void);
+void WEAK  PWMGen2_IRQHandler(void);
+void WEAK  QEI0_IRQHandler(void);
+void WEAK  ADCSeq0_IRQHandler(void);
+void WEAK  ADCSeq1_IRQHandler(void);
+void WEAK  ADCSeq2_IRQHandler(void);
+void WEAK  ADCSeq3_IRQHandler(void);
+void WEAK  Watchdog_IRQHandler(void);
+void WEAK  Timer0A_IRQHandler(void);
+void WEAK  Timer0B_IRQHandler(void);
+void WEAK  Timer1A_IRQHandler(void);
+void WEAK  Timer1B_IRQHandler(void);
+void WEAK  Timer2A_IRQHandler(void);
+void WEAK  Timer2B_IRQHandler(void);
+void WEAK  Comp0_IRQHandler(void);
+void WEAK  Comp1_IRQHandler(void);
+void WEAK  Comp2_IRQHandler(void);
+void WEAK  SysCtrl_IRQHandler(void);
+void WEAK  FlashCtrl_IRQHandler(void);
+void WEAK  GPIOPortF_IRQHandler(void);
+void WEAK  GPIOPortG_IRQHandler(void);
+void WEAK  GPIOPortH_IRQHandler(void);
+void WEAK  UART2_IRQHandler(void);
+void WEAK  SSI1_IRQHandler(void);
+void WEAK  Timer3A_IRQHandler(void);
+void WEAK  Timer3B_IRQHandler(void);
+void WEAK  I2C1_IRQHandler(void);
+void WEAK  QEI1_IRQHandler(void);
+void WEAK  CAN0_IRQHandler(void);
+void WEAK  CAN1_IRQHandler(void);
+void WEAK  CAN2_IRQHandler(void);
+void WEAK  Hibernate_IRQHandler(void);
+void WEAK  USB0_IRQHandler(void);
+void WEAK  PWMGen3_IRQHandler(void);
+void WEAK  uDMA_IRQHandler(void);
+void WEAK  uDMAErr_IRQHandler(void);
+void WEAK  ADC1Seq0_IRQHandler(void);
+void WEAK  ADC1Seq1_IRQHandler(void);
+void WEAK  ADC1Seq2_IRQHandler(void);
+void WEAK  ADC1Seq3_IRQHandler(void);
+void WEAK  GPIOPortJ_IRQHandler(void);
+void WEAK  GPIOPortK_IRQHandler(void);
+void WEAK  GPIOPortL_IRQHandler(void);
+void WEAK  SSI2_IRQHandler(void);
+void WEAK  SSI3_IRQHandler(void);
+void WEAK  UART3_IRQHandler(void);
+void WEAK  UART4_IRQHandler(void);
+void WEAK  UART5_IRQHandler(void);
+void WEAK  UART6_IRQHandler(void);
+void WEAK  UART7_IRQHandler(void);
+void WEAK  I2C2_IRQHandler(void);
+void WEAK  I2C3_IRQHandler(void);
+void WEAK  Timer4A_IRQHandler(void);
+void WEAK  Timer4B_IRQHandler(void);
+void WEAK  Timer5A_IRQHandler(void);
+void WEAK  Timer5B_IRQHandler(void);
+void WEAK  WTimer0A_IRQHandler(void);
+void WEAK  WTimer0B_IRQHandler(void);
+void WEAK  WTimer1A_IRQHandler(void);
+void WEAK  WTimer1B_IRQHandler(void);
+void WEAK  WTimer2A_IRQHandler(void);
+void WEAK  WTimer2B_IRQHandler(void);
+void WEAK  WTimer3A_IRQHandler(void);
+void WEAK  WTimer3B_IRQHandler(void);
+void WEAK  WTimer4A_IRQHandler(void);
+void WEAK  WTimer4B_IRQHandler(void);
+void WEAK  WTimer5A_IRQHandler(void);
+void WEAK  WTimer5B_IRQHandler(void);
+void WEAK  FPU_IRQHandler(void);
+void WEAK  PECI0_IRQHandler(void);
+void WEAK  LPC0_IRQHandler(void);
+void WEAK  I2C4_IRQHandler(void);
+void WEAK  I2C5_IRQHandler(void);
+void WEAK  GPIOPortM_IRQHandler(void);
+void WEAK  GPIOPortN_IRQHandler(void);
+void WEAK  QEI2_IRQHandler(void);
+void WEAK  Fan0_IRQHandler(void);
+void WEAK  GPIOPortP0_IRQHandler(void);
+void WEAK  GPIOPortP1_IRQHandler(void);
+void WEAK  GPIOPortP2_IRQHandler(void);
+void WEAK  GPIOPortP3_IRQHandler(void);
+void WEAK  GPIOPortP4_IRQHandler(void);
+void WEAK  GPIOPortP5_IRQHandler(void);
+void WEAK  GPIOPortP6_IRQHandler(void);
+void WEAK  GPIOPortP7_IRQHandler(void);
+void WEAK  GPIOPortQ0_IRQHandler(void);
+void WEAK  GPIOPortQ1_IRQHandler(void);
+void WEAK  GPIOPortQ2_IRQHandler(void);
+void WEAK  GPIOPortQ3_IRQHandler(void);
+void WEAK  GPIOPortQ4_IRQHandler(void);
+void WEAK  GPIOPortQ5_IRQHandler(void);
+void WEAK  GPIOPortQ6_IRQHandler(void);
+void WEAK  GPIOPortQ7_IRQHandler(void);
+void WEAK  GPIOPortR_IRQHandler(void);
+void WEAK  GPIOPortS_IRQHandler(void);
+void WEAK  PWM1Gen0_IRQHandler(void);
+void WEAK  PWM1Gen1_IRQHandler(void);
+void WEAK  PWM1Gen2_IRQHandler(void);
+void WEAK  PWM1Gen3_IRQHandler(void);
+void WEAK  PWM1Fault_IRQHandler(void);
 
-// defined by the linker it's the stack top variable (End of ram)
-extern unsigned long _stack_top;
-// defined by the liker, this are just start and end marker for each section.
-// .text (code)
-extern unsigned long _start_text;
-extern unsigned long _end_text;
-// .data (data to be copied on ram)
-extern unsigned long _start_data;
-extern unsigned long _end_data;
-// .bss (uninitialized data to set to 0);
-extern unsigned long _start_bss;
-extern unsigned long _end_bss;
 
-// NVIC ISR table
-// the funny looking void(* myvectors[])(void) basically it's a way to make cc accept an array of function pointers.
-__attribute__ ((section(".nvic_table")))
-void(* myvectors[])(void) = {
-	// This are the fixed priority interrupts and the stack pointer loaded at startup at R13 (SP).
-	//												VECTOR N (Check Datasheet)
-	// here the compiler it's boring.. have to figure that out
-    (void (*)) &_stack_top, 
-    						// stack pointer should be 
-							// placed here at startup.			0
-    rst_handler,			// code entry point					1
-    nmi_handler,			// NMI handler.						2
-    hardfault_handler,		// hard fault handler.				3
-    // Configurable priority interruts handler start here.
-    empty_def_handler,		// Memory Management Fault			4
-    empty_def_handler,		// Bus Fault						5
-    empty_def_handler,		// Usage Fault 						6
-    0,						// Reserved							7
-    0,						// Reserved							8
-    0,						// Reserved							9
-    0,						// Reserved							10
-    empty_def_handler,		// SV call							11
-    empty_def_handler,		// Debug monitor					12
-    0,						// Reserved							13
-    empty_def_handler,		// PendSV							14
-    empty_def_handler,		// SysTick							15
-    // Peripherial interrupts start here.
-	empty_def_handler,		// GPIO Port A						16
-	empty_def_handler,		// GPIO Port B						17
-	empty_def_handler,		// GPIO Port C						18
-	empty_def_handler,		// GPIO Port D						19
-	empty_def_handler,		// GPIO Port E						20
-	empty_def_handler,		// UART 0							21
-	empty_def_handler,		// UART 1							22
-	empty_def_handler,		// SSI 0							23
-	empty_def_handler,		// I2C 0							24
-	0,						// Reserved							25
-	0,						// Reserved							26
-	0,						// Reserved							27
-	0,						// Reserved							28
-	0,						// Reserved							29
-	empty_def_handler,		// ADC 0 Seq 0						30
-	empty_def_handler,		// ADC 0 Seq 1						31
-	empty_def_handler,		// ADC 0 Seq 2						32
-	empty_def_handler,		// ADC 0 Seq 3						33
-	empty_def_handler,		// WDT 0 and 1						34
-	empty_def_handler,		// 16/32 bit timer 0 A				35
-	empty_def_handler,		// 16/32 bit timer 0 B				36
-	empty_def_handler,		// 16/32 bit timer 1 A				37
-	empty_def_handler,		// 16/32 bit timer 1 B				38
-	empty_def_handler,		// 16/32 bit timer 2 A				39
-	empty_def_handler,		// 16/32 bit timer 2 B				40
-	empty_def_handler,		// Analog comparator 0				41
-	empty_def_handler,		// Analog comparator 1				42
-	0,						// Reserved							43
-	empty_def_handler,		// System control					44
-	empty_def_handler,		// Flash + EEPROM control			45
-	empty_def_handler,		// GPIO Port F						46
-	0,						// Reserved							47
-	0,						// Reserved							48
-	empty_def_handler,		// UART 2							49
-	empty_def_handler,		// SSI 1							50
-	empty_def_handler,		// 16/32 bit timer 3 A				51
-	empty_def_handler,		// 16/32 bit timer 3 B				52
-	empty_def_handler,		// I2C 1							53
-	0,						// Reserved							54
-	empty_def_handler,		// CAN 0							55
-	0,						// Reserved							56
-	0,						// Reserved							57
-	0,						// Reserved							58
-	empty_def_handler,		// Hibernation module				59
-	empty_def_handler,		// USB								60
-	0,						// Reserved							61
-	empty_def_handler,		// UDMA SW							62
-	empty_def_handler,		// UDMA Error						63
-	empty_def_handler,		// ADC 1 Seq 0						64
-	empty_def_handler,		// ADC 1 Seq 1						65
-	empty_def_handler,		// ADC 1 Seq 2						66
-	empty_def_handler,		// ADC 1 Seq 3						67
-	0,						// Reserved							68
-	0,						// Reserved							69
-	0,						// Reserved							70
-	0,						// Reserved							71
-	0,						// Reserved							72
-	empty_def_handler,		// SSI 2							73
-	empty_def_handler,		// SSI 2							74
-	empty_def_handler,		// UART 3							75
-	empty_def_handler,		// UART 4							76
-	empty_def_handler,		// UART 5							77
-	empty_def_handler,		// UART 6							78
-	empty_def_handler,		// UART 7							79
-	0,						// Reserved							80
-	0,						// Reserved							81
-	0,						// Reserved							82
-	0,						// Reserved							83
-	empty_def_handler,		// I2C 2							84
-	empty_def_handler,		// I2C 4							85
-	empty_def_handler,		// 16/32 bit timer 4 A				86
-	empty_def_handler,		// 16/32 bit timer 4 B				87
-	0,						// Reserved							88
-	0,						// Reserved							89
-	0,						// Reserved							90
-	0,						// Reserved							91
-	0,						// Reserved							92
-	0,						// Reserved							93
-	0,						// Reserved							94
-	0,						// Reserved							95
-	0,						// Reserved							96
-	0,						// Reserved							97
-	0,						// Reserved							98
-	0,						// Reserved							99
-	0,						// Reserved							100
-	0,						// Reserved							101
-	0,						// Reserved							102
-	0,						// Reserved							103
-	0,						// Reserved							104
-	0,						// Reserved							105
-	0,						// Reserved							106
-	0,						// Reserved							107
-	empty_def_handler,		// 16/32 bit timer 5 A				108
-	empty_def_handler,		// 16/32 bit timer 5 B				109
-	empty_def_handler,		// 32/64 bit timer 0 A				110
-	empty_def_handler,		// 32/64 bit timer 0 B				111
-	empty_def_handler,		// 32/64 bit timer 1 A				112
-	empty_def_handler,		// 32/64 bit timer 1 B				113
-	empty_def_handler,		// 32/64 bit timer 2 A				114
-	empty_def_handler,		// 32/64 bit timer 2 B				115
-	empty_def_handler,		// 32/64 bit timer 3 A				116
-	empty_def_handler,		// 32/64 bit timer 3 B				117
-	empty_def_handler,		// 32/64 bit timer 4 A				118
-	empty_def_handler,		// 32/64 bit timer 4 B				119
-	empty_def_handler,		// 32/64 bit timer 5 A				120
-	empty_def_handler,		// 32/64 bit timer 5 B				121
-	empty_def_handler,		// System Exception					122
-	0,						// Reserved							123
-	0,						// Reserved							124
-	0,						// Reserved							125
-	0,						// Reserved							126
-	0,						// Reserved							127
-	0,						// Reserved							128
-	0,						// Reserved							129
-	0,						// Reserved							130
-	0,						// Reserved							131
-	0,						// Reserved							132
-	0,						// Reserved							133
-	0,						// Reserved							134
-	0,						// Reserved							135
-	0,						// Reserved							136
-	0,						// Reserved							137
-	0,						// Reserved							138
-	0,						// Reserved							139
-	0,						// Reserved							140
-	0,						// Reserved							141
-	0,						// Reserved							142
-	0,						// Reserved							143
-	0,						// Reserved							144
-	0,						// Reserved							145
-	0,						// Reserved							146
-	0,						// Reserved							147
-	0,						// Reserved							148
-	0,						// Reserved							149
-	0,						// Reserved							150
-	0,						// Reserved							151
-	0,						// Reserved							152
-	0,						// Reserved							153
-	0						// Reserved							154
+/*----------Symbols defined in linker script----------------------------------*/
+extern unsigned long __text_end__;      /*!< End address for the .data section       */
+extern unsigned long __data_start__;    /*!< Start address for the .data section     */
+extern unsigned long __data_end__;      /*!< End address for the .data section       */
+extern unsigned long __bss_start__;     /*!< Start address for the .bss section      */
+extern unsigned long __bss_end__;       /*!< End address for the .bss section        */
+extern unsigned long __stack_top__;     /*!< Top address for the .stack section      */
+extern void _eram;                      /*!< End address for ram                     */
+
+/*----------Function prototypes-----------------------------------------------*/
+extern int main(void);           /*!< The entry point for the application.    */
+extern void SystemInit(void);    /*!< Setup the microcontroller system(CMSIS) */
+void Default_Reset_Handler(void);   /*!< Default reset handler                */
+static void Default_Handler(void);  /*!< Default exception handler            */
+
+
+/**
+  *@brief The minimal vector table for a Cortex M4F.  Note that the proper constructs
+  *       must be placed on this to ensure that it ends up at physical address
+  *       0x00000000.
+  */
+__attribute__ ((used,section(".isr_vector")))
+void (* const g_pfnVectors[])(void) =
+{
+  /*----------Core Exceptions------------------------------------------------ */
+  (void *)&__stack_top__,              /*!< The initial stack pointer         */
+  Reset_Handler,                       /*!< The reset handler                 */
+  NMI_Handler,                         /*!< The NMI handler                   */
+  HardFault_Handler,                   /*!< The hard fault handler            */
+  MemManage_Handler,                   /*!< The MPU fault handler             */
+  BusFault_Handler,                    /*!< The bus fault handler             */
+  UsageFault_Handler,                  /*!< The usage fault handler           */
+  0,0,0,0,                             /*!< Reserved                          */
+  SVC_Handler,                         /*!< SVCall handler                    */
+  DebugMon_Handler,                    /*!< Debug monitor handler             */
+  0,                                   /*!< Reserved                          */
+  PendSV_Handler,                      /*!< The PendSV handler                */
+  SysTick_Handler,                     /*!< The SysTick handler               */
+
+  /*----------External Exceptions---------------------------------------------*/
+  GPIOPortA_IRQHandler,                /*!<   0: GPIO Port A                   */
+  GPIOPortB_IRQHandler,                /*!<   1: GPIO Port B                   */
+  GPIOPortC_IRQHandler,                /*!<   2: GPIO Port C                   */
+  GPIOPortD_IRQHandler,                /*!<   3: GPIO Port D                   */
+  GPIOPortE_IRQHandler,                /*!<   4: GPIO Port E                   */
+  UART0_IRQHandler,                    /*!<   5: UART0 Rx and Tx               */
+  UART1_IRQHandler,                    /*!<   6: UART1 Rx and Tx               */
+  SSI0_IRQHandler,                     /*!<   7: SSI0 Rx and Tx                */
+  I2C0_IRQHandler,                     /*!<   8: I2C0 Master and Slave         */
+  PWMFault_IRQHandler,                 /*!<   9: PWM Fault                     */
+  PWMGen0_IRQHandler,                  /*!<  10: PWM Generator 0               */
+  PWMGen1_IRQHandler,                  /*!<  11: PWM Generator 1               */
+  PWMGen2_IRQHandler,                  /*!<  12: PWM Generator 2               */
+  QEI0_IRQHandler,                     /*!<  13: Quadrature Encoder 0          */
+  ADCSeq0_IRQHandler,                  /*!<  14: ADC Sequence 0                */
+  ADCSeq1_IRQHandler,                  /*!<  15: ADC Sequence 1                */
+  ADCSeq2_IRQHandler,                  /*!<  16: ADC Sequence 2                */
+  ADCSeq3_IRQHandler,                  /*!<  17: ADC Sequence 3                */
+  Watchdog_IRQHandler,                 /*!<  18: Watchdog timer                */
+  Timer0A_IRQHandler,                  /*!<  19: Timer 0 subtimer A            */
+  Timer0B_IRQHandler,                  /*!<  20: Timer 0 subtimer B            */
+  Timer1A_IRQHandler,                  /*!<  21: Timer 1 subtimer A            */
+  Timer1B_IRQHandler,                  /*!<  22: Timer 1 subtimer B            */
+  Timer2A_IRQHandler,                  /*!<  23: Timer 2 subtimer A            */
+  Timer2B_IRQHandler,                  /*!<  24: Timer 2 subtimer B            */
+  Comp0_IRQHandler,                    /*!<  25: Analog Comparator 0           */
+  Comp1_IRQHandler,                    /*!<  26: Analog Comparator 1           */
+  Comp2_IRQHandler,                    /*!<  27: Analog Comparator 2           */
+  SysCtrl_IRQHandler,                  /*!<  28: System Control (PLL, OSC, BO) */
+  FlashCtrl_IRQHandler,                /*!<  29: FLASH Control                 */
+  GPIOPortF_IRQHandler,                /*!<  30: GPIO Port F                   */
+  GPIOPortG_IRQHandler,                /*!<  31: GPIO Port G                   */
+  GPIOPortH_IRQHandler,                /*!<  32: GPIO Port H                   */
+  UART2_IRQHandler,                    /*!<  33: UART2 Rx and Tx               */
+  SSI1_IRQHandler,                     /*!<  34: SSI1 Rx and Tx                */
+  Timer3A_IRQHandler,                  /*!<  35: Timer 3 subtimer A            */
+  Timer3B_IRQHandler,                  /*!<  36: Timer 3 subtimer B            */
+  I2C1_IRQHandler,                     /*!<  37: I2C1 Master and Slave         */
+  QEI1_IRQHandler,                     /*!<  38: Quadrature Encoder 1          */
+  CAN0_IRQHandler,                     /*!<  39: CAN0                          */
+  CAN1_IRQHandler,                     /*!<  40: CAN1                          */
+  CAN2_IRQHandler,                     /*!<  41: CAN2                          */
+  0,                                   /*!<  42: Reserved                      */
+  Hibernate_IRQHandler,                /*!<  43: Hibernate                     */
+  USB0_IRQHandler,                     /*!<  44: USB0                          */
+  PWMGen3_IRQHandler,                  /*!<  45: PWM Generator 3               */
+  uDMA_IRQHandler,                     /*!<  46: uDMA Software Transfer        */
+  uDMAErr_IRQHandler,                  /*!<  47: uDMA Error                    */
+  ADC1Seq0_IRQHandler,                 /*!<  48: ADC1 Sequence 0               */
+  ADC1Seq1_IRQHandler,                 /*!<  49: ADC1 Sequence 1               */
+  ADC1Seq2_IRQHandler,                 /*!<  50: ADC1 Sequence 2               */
+  ADC1Seq3_IRQHandler,                 /*!<  51: ADC1 Sequence 3               */
+  0,0,                                 /*!<  52-53: Reserved                   */
+  GPIOPortJ_IRQHandler,                /*!<  54: GPIO Port J                   */
+  GPIOPortK_IRQHandler,                /*!<  55: GPIO Port K                   */
+  GPIOPortL_IRQHandler,                /*!<  56: GPIO Port L                   */
+  SSI2_IRQHandler,                     /*!<  57: SSI2 Rx and Tx                */
+  SSI3_IRQHandler,                     /*!<  58: SSI3 Rx and Tx                */
+  UART3_IRQHandler,                    /*!<  59: UART3 Rx and Tx               */
+  UART4_IRQHandler,                    /*!<  60: UART4 Rx and Tx               */
+  UART5_IRQHandler,                    /*!<  61: UART5 Rx and Tx               */
+  UART6_IRQHandler,                    /*!<  62: UART6 Rx and Tx               */
+  UART7_IRQHandler,                    /*!<  63: UART7 Rx and Tx               */
+  0,0,0,0,                             /*!<  64-67: Reserved                   */
+  I2C2_IRQHandler,                     /*!<  68: I2C2 Master and Slave         */
+  I2C3_IRQHandler,                     /*!<  69: I2C3 Master and Slave         */
+  Timer4A_IRQHandler,                  /*!<  70: Timer 4 subtimer A            */
+  Timer4B_IRQHandler,                  /*!<  71: Timer 4 subtimer B            */
+  0,0,0,0,0,0,0,0,0,0,                 /*!<  72-81: Reserved                   */
+  0,0,0,0,0,0,0,0,0,0,                 /*!<  82-91: Reserved                   */
+  Timer5A_IRQHandler,                  /*!<  92: Timer 5 subtimer A            */
+  Timer5B_IRQHandler,                  /*!<  93: Timer 5 subtimer B            */
+  WTimer0A_IRQHandler,                 /*!<  94: Wide Timer 0 subtimer A       */
+  WTimer0B_IRQHandler,                 /*!<  95: Wide Timer 0 subtimer B       */
+  WTimer1A_IRQHandler,                 /*!<  96: Wide Timer 1 subtimer A       */
+  WTimer1B_IRQHandler,                 /*!<  97: Wide Timer 1 subtimer B       */
+  WTimer2A_IRQHandler,                 /*!<  98: Wide Timer 2 subtimer A       */
+  WTimer2B_IRQHandler,                 /*!<  99: Wide Timer 2 subtimer B       */
+  WTimer3A_IRQHandler,                 /*!< 100: Wide Timer 3 subtimer A       */
+  WTimer3B_IRQHandler,                 /*!< 101: Wide Timer 3 subtimer B       */
+  WTimer4A_IRQHandler,                 /*!< 102: Wide Timer 4 subtimer A       */
+  WTimer4B_IRQHandler,                 /*!< 103: Wide Timer 4 subtimer B       */
+  WTimer5A_IRQHandler,                 /*!< 104: Wide Timer 5 subtimer A       */
+  WTimer5B_IRQHandler,                 /*!< 105: Wide Timer 5 subtimer B       */
+  FPU_IRQHandler,                      /*!< 106: FPU                           */
+  PECI0_IRQHandler,                    /*!< 107: PECI 0                        */
+  LPC0_IRQHandler,                     /*!< 108: LPC 0                         */
+  I2C4_IRQHandler,                     /*!< 109: I2C4 Master and Slave         */
+  I2C5_IRQHandler,                     /*!< 110: I2C5 Master and Slave         */
+  GPIOPortM_IRQHandler,                /*!< 111: GPIO Port M                   */
+  GPIOPortN_IRQHandler,                /*!< 112: GPIO Port N                   */
+  QEI2_IRQHandler,                     /*!< 113: Quadrature Encoder 1          */
+  Fan0_IRQHandler,                     /*!< 114: Fan 0                         */
+  0,                                   /*!< 115: Reserved                      */
+  GPIOPortP0_IRQHandler,               /*!< 116: GPIO Port P0                  */
+  GPIOPortP1_IRQHandler,               /*!< 117: GPIO Port P1                  */
+  GPIOPortP2_IRQHandler,               /*!< 118: GPIO Port P2                  */
+  GPIOPortP3_IRQHandler,               /*!< 119: GPIO Port P3                  */
+  GPIOPortP4_IRQHandler,               /*!< 120: GPIO Port P4                  */
+  GPIOPortP5_IRQHandler,               /*!< 117: GPIO Port P5                  */
+  GPIOPortP6_IRQHandler,               /*!< 118: GPIO Port P6                  */
+  GPIOPortP7_IRQHandler,               /*!< 119: GPIO Port P7                  */
+  GPIOPortQ0_IRQHandler,               /*!< 120: GPIO Port Q0                  */
+  GPIOPortQ1_IRQHandler,               /*!< 121: GPIO Port Q1                  */
+  GPIOPortQ2_IRQHandler,               /*!< 122: GPIO Port Q2                  */
+  GPIOPortQ3_IRQHandler,               /*!< 123: GPIO Port Q3                  */
+  GPIOPortQ4_IRQHandler,               /*!< 124: GPIO Port Q4                  */
+  GPIOPortQ5_IRQHandler,               /*!< 125: GPIO Port Q5                  */
+  GPIOPortQ6_IRQHandler,               /*!< 126: GPIO Port Q6                  */
+  GPIOPortQ7_IRQHandler,               /*!< 127: GPIO Port Q7                  */
+  GPIOPortR_IRQHandler,                /*!< 127: GPIO Port R                   */
+  GPIOPortS_IRQHandler,                /*!< 127: GPIO Port S                   */
+  PWM1Gen0_IRQHandler,                 /*!< 128: PWM 1 Generator 0             */
+  PWM1Gen1_IRQHandler,                 /*!< 129: PWM 1 Generator 1             */
+  PWM1Gen2_IRQHandler,                 /*!< 130: PWM 1 Generator 2             */
+  PWM1Gen3_IRQHandler,                 /*!< 131: PWM 1 Generator 3             */
+  PWM1Fault_IRQHandler,                /*!< 132: PWM 1 Fault                   */
 };
 
-//-----------------------------------------------------------------------------
-// 							Function implementations.
-//-----------------------------------------------------------------------------
 
-/* 
-* System on reset code. NVIC 1
-* Here I prepare the memory for the c compiler.
-* The stack pointer should be set at the beginning with the NVIC table already.
-* Copy the .data segment from flash into ram.
-* 0 to the .bss segment 
-*/
-	
-void rst_handler(void){	
-	// Copy the .data section pointers to ram from flash.
-	// Look at LD manual (Optional Section Attributes).
-	
-	// source and destination pointers
-	unsigned long *src;
-	unsigned long *dest;
-	
-	//this should be good!
-	src = &_end_text;
-	dest = &_start_data;
-	
-	//this too
-    while(dest < &_end_data)
-    {
-        *dest++ = *src++;
-    }
-	
-    // now set the .bss segment to 0!
-    dest = &_start_bss;
-	while(dest < &_end_bss){
-		*dest++ = 0;
-	}
-	
-	// after setting copying .data to ram and "zero-ing" .bss we are good
-	// to start the main() method!
-	// There you go!
-	main();
+/**
+  * @brief  This is the code that gets called when the processor first
+  *         starts execution following a reset event. Only the absolutely
+  *         necessary set is performed, after which the application
+  *         supplied main() routine is called.
+  * @param  None
+  * @retval None
+  */
+void Default_Reset_Handler(void)
+{
+  /* Initialize data and bss */
+  unsigned long *pulSrc, *pulDest;
+
+  /* Copy the data segment initializers from flash to SRAM */
+  pulSrc = &__text_end__;
+
+  for(pulDest = &__data_start__; pulDest < &__data_end__; )
+  {
+    *(pulDest++) = *(pulSrc++);
+  }
+
+  /* Zero fill the bss segment.  This is done with inline assembly since this
+     will clear the value of pulDest if it is not kept in a register. */
+  __asm("  ldr     r0, =__bss_start__\n"
+        "  ldr     r1, =__bss_end__\n"
+        "  mov     r2, #0\n"
+        "  .thumb_func\n"
+        "zero_loop:\n"
+        "    cmp     r0, r1\n"
+        "    it      lt\n"
+        "    strlt   r2, [r0], #4\n"
+        "    blt     zero_loop");
+
+  /* Enable the floating-point unit.  This must be done here to handle the
+     case where main() uses floating-point and the function prologue saves
+     floating-point registers (which will fault if floating-point is not
+     enabled).  Any configuration of the floating-point unit using DriverLib
+     APIs must be done here prior to the floating-point unit being enabled.
+
+     Note that this does not use DriverLib since it might not be included in
+     this project. */
+  (*((volatile uint32_t *)(0xE000ED88))) = (((*((volatile uint32_t *)(0xE000ED88))) & ~(0x00300000 | 0x00C00000)) | 0x00300000 | 0x00C00000);
+
+
+  /* Call the application's entry point.*/
+  SystemInit();
+  main();
 }
 
-// NMI Exception handler code NVIC 2
-void nmi_handler(void){
-	// Just loop forever, so if you want to debug the processor it's running.
-    while(1){
-    }
+
+/**
+  *@brief Provide weak aliases for each Exception handler to the Default_Handler.
+  *       As they are weak aliases, any function with the same name will override
+  *       this definition.
+  */
+
+#pragma weak Reset_Handler = Default_Reset_Handler
+#pragma weak NMI_Handler = Default_Handler
+#pragma weak HardFault_Handler = Default_Handler
+#pragma weak MemManage_Handler = Default_Handler
+#pragma weak BusFault_Handler = Default_Handler
+#pragma weak UsageFault_Handler = Default_Handler
+#pragma weak SVC_Handler = Default_Handler
+#pragma weak DebugMon_Handler = Default_Handler
+#pragma weak PendSV_Handler = Default_Handler
+#pragma weak SysTick_Handler = Default_Handler
+#pragma weak GPIOPortA_IRQHandler = Default_Handler
+#pragma weak GPIOPortB_IRQHandler = Default_Handler
+#pragma weak GPIOPortC_IRQHandler = Default_Handler
+#pragma weak GPIOPortD_IRQHandler = Default_Handler
+#pragma weak GPIOPortE_IRQHandler = Default_Handler
+#pragma weak UART0_IRQHandler = Default_Handler
+#pragma weak UART1_IRQHandler = Default_Handler
+#pragma weak SSI0_IRQHandler = Default_Handler
+#pragma weak I2C0_IRQHandler = Default_Handler
+#pragma weak PWMFault_IRQHandler = Default_Handler
+#pragma weak PWMGen0_IRQHandler = Default_Handler
+#pragma weak PWMGen1_IRQHandler = Default_Handler
+#pragma weak PWMGen2_IRQHandler = Default_Handler
+#pragma weak QEI0_IRQHandler = Default_Handler
+#pragma weak ADCSeq0_IRQHandler = Default_Handler
+#pragma weak ADCSeq1_IRQHandler = Default_Handler
+#pragma weak ADCSeq2_IRQHandler = Default_Handler
+#pragma weak ADCSeq3_IRQHandler = Default_Handler
+#pragma weak Watchdog_IRQHandler = Default_Handler
+#pragma weak Timer0A_IRQHandler = Default_Handler
+#pragma weak Timer0B_IRQHandler = Default_Handler
+#pragma weak Timer1A_IRQHandler = Default_Handler
+#pragma weak Timer1B_IRQHandler = Default_Handler
+#pragma weak Timer2A_IRQHandler = Default_Handler
+#pragma weak Timer2B_IRQHandler = Default_Handler
+#pragma weak Comp0_IRQHandler = Default_Handler
+#pragma weak Comp1_IRQHandler = Default_Handler
+#pragma weak Comp2_IRQHandler = Default_Handler
+#pragma weak SysCtrl_IRQHandler = Default_Handler
+#pragma weak FlashCtrl_IRQHandler = Default_Handler
+#pragma weak GPIOPortF_IRQHandler = Default_Handler
+#pragma weak GPIOPortG_IRQHandler = Default_Handler
+#pragma weak GPIOPortH_IRQHandler = Default_Handler
+#pragma weak UART2_IRQHandler = Default_Handler
+#pragma weak SSI1_IRQHandler = Default_Handler
+#pragma weak Timer3A_IRQHandler = Default_Handler
+#pragma weak Timer3B_IRQHandler = Default_Handler
+#pragma weak I2C1_IRQHandler = Default_Handler
+#pragma weak QEI1_IRQHandler = Default_Handler
+#pragma weak CAN0_IRQHandler = Default_Handler
+#pragma weak CAN1_IRQHandler = Default_Handler
+#pragma weak CAN2_IRQHandler = Default_Handler
+#pragma weak Hibernate_IRQHandler = Default_Handler
+#pragma weak USB0_IRQHandler = Default_Handler
+#pragma weak PWMGen3_IRQHandler = Default_Handler
+#pragma weak uDMA_IRQHandler = Default_Handler
+#pragma weak uDMAErr_IRQHandler = Default_Handler
+#pragma weak  ADC1Seq0_IRQHandler = Default_Handler
+#pragma weak  ADC1Seq1_IRQHandler = Default_Handler
+#pragma weak  ADC1Seq2_IRQHandler = Default_Handler
+#pragma weak  ADC1Seq3_IRQHandler = Default_Handler
+#pragma weak  GPIOPortJ_IRQHandler = Default_Handler
+#pragma weak  GPIOPortK_IRQHandler = Default_Handler
+#pragma weak  GPIOPortL_IRQHandler = Default_Handler
+#pragma weak  SSI2_IRQHandler = Default_Handler
+#pragma weak  SSI3_IRQHandler = Default_Handler
+#pragma weak  UART3_IRQHandler = Default_Handler
+#pragma weak  UART4_IRQHandler = Default_Handler
+#pragma weak  UART5_IRQHandler = Default_Handler
+#pragma weak  UART6_IRQHandler = Default_Handler
+#pragma weak  UART7_IRQHandler = Default_Handler
+#pragma weak  I2C2_IRQHandler = Default_Handler
+#pragma weak  I2C3_IRQHandler = Default_Handler
+#pragma weak  Timer4A_IRQHandler = Default_Handler
+#pragma weak  Timer4B_IRQHandler = Default_Handler
+#pragma weak  Timer5A_IRQHandler = Default_Handler
+#pragma weak  Timer5B_IRQHandler = Default_Handler
+#pragma weak  WTimer0A_IRQHandler = Default_Handler
+#pragma weak  WTimer0B_IRQHandler = Default_Handler
+#pragma weak  WTimer1A_IRQHandler = Default_Handler
+#pragma weak  WTimer1B_IRQHandler = Default_Handler
+#pragma weak  WTimer2A_IRQHandler = Default_Handler
+#pragma weak  WTimer2B_IRQHandler = Default_Handler
+#pragma weak  WTimer3A_IRQHandler = Default_Handler
+#pragma weak  WTimer3B_IRQHandler = Default_Handler
+#pragma weak  WTimer4A_IRQHandler = Default_Handler
+#pragma weak  WTimer4B_IRQHandler = Default_Handler
+#pragma weak  WTimer5A_IRQHandler = Default_Handler
+#pragma weak  WTimer5B_IRQHandler = Default_Handler
+#pragma weak  FPU_IRQHandler = Default_Handler
+#pragma weak  PECI0_IRQHandler = Default_Handler
+#pragma weak  LPC0_IRQHandler = Default_Handler
+#pragma weak  I2C4_IRQHandler = Default_Handler
+#pragma weak  I2C5_IRQHandler = Default_Handler
+#pragma weak  GPIOPortM_IRQHandler = Default_Handler
+#pragma weak  GPIOPortN_IRQHandler = Default_Handler
+#pragma weak  QEI2_IRQHandler = Default_Handler
+#pragma weak  Fan0_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP0_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP1_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP2_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP3_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP4_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP5_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP6_IRQHandler = Default_Handler
+#pragma weak  GPIOPortP7_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ0_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ1_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ2_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ3_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ4_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ5_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ6_IRQHandler = Default_Handler
+#pragma weak  GPIOPortQ7_IRQHandler = Default_Handler
+#pragma weak  GPIOPortR_IRQHandler = Default_Handler
+#pragma weak  GPIOPortS_IRQHandler = Default_Handler
+#pragma weak  PWM1Gen0_IRQHandler = Default_Handler
+#pragma weak  PWM1Gen1_IRQHandler = Default_Handler
+#pragma weak  PWM1Gen2_IRQHandler = Default_Handler
+#pragma weak  PWM1Gen3_IRQHandler = Default_Handler
+#pragma weak  PWM1Fault_IRQHandler = Default_Handler
+
+
+/**
+  * @brief  This is the code that gets called when the processor receives an
+  *         unexpected interrupt.  This simply enters an infinite loop,
+  *         preserving the system state for examination by a debugger.
+  * @param  None
+  * @retval None
+  */
+static void Default_Handler(void)
+{
+  /* Go into an infinite loop. */
+  while (1)
+  {
+  }
 }
 
-// Hard fault handler code NVIC 3
-void hardfault_handler(void){
-	// Just loop forever, so if you want to debug the processor it's running.
-    while(1){
-    }
-}
-
-// Empty handler used as default.
-void empty_def_handler(void){
-	// Just loop forever, so if you want to debug the processor it's running.
-    while(1){
-    }
-}
+/*********************** (C) COPYRIGHT 2009 Coocox ************END OF FILE*****/

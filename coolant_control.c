@@ -2,6 +2,7 @@
   coolant_control.c - coolant control methods
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2012-2014 Sungeun K. Jeon
 
   Grbl is free software: you can redistribute it and/or modify
@@ -21,37 +22,34 @@
 #include "system.h"
 #include "coolant_control.h"
 #include "protocol.h"
+#include "gcode.h"
 
 
 void coolant_init(void)
 {
-  COOLANT_FLOOD_DDR |= (1 << COOLANT_FLOOD_BIT);
-  #ifdef ENABLE_M7
-    COOLANT_MIST_DDR |= (1 << COOLANT_MIST_BIT);
-  #endif
+		
+	COOLANT_PORT->DIR |= COOLANT_MASK;			// make output pin
+	COOLANT_PORT->AMSEL &= ~COOLANT_MASK;		// disable analog
+  COOLANT_PORT->AFSEL &= ~COOLANT_MASK;		// disable alt funct
+  COOLANT_PORT->DEN |= COOLANT_MASK;			// make digital pin
+	
   coolant_stop();
 }
 
-
 void coolant_stop(void)
 {
-  COOLANT_FLOOD_PORT &= ~(1 << COOLANT_FLOOD_BIT);
-  #ifdef ENABLE_M7
-    COOLANT_MIST_PORT &= ~(1 << COOLANT_MIST_BIT);
-  #endif
+  COOLANT_PORT->DATA &= ~(1 << COOLANT_BIT);
 }
 
 
 void coolant_run(uint8_t mode)
 {
+  if (sys.state == STATE_CHECK_MODE) { return; }
+
+  protocol_auto_cycle_start();   //temp fix for M8 lockup
   protocol_buffer_synchronize(); // Ensure coolant turns on when specified in program.
   if (mode == COOLANT_FLOOD_ENABLE) {
-    COOLANT_FLOOD_PORT |= (1 << COOLANT_FLOOD_BIT);
-
-  #ifdef ENABLE_M7  
-    } else if (mode == COOLANT_MIST_ENABLE) {
-      COOLANT_MIST_PORT |= (1 << COOLANT_MIST_BIT);
-  #endif
+    COOLANT_PORT->DATA |= (1 << COOLANT_BIT);
 
   } else {
     coolant_stop();

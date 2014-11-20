@@ -2,6 +2,7 @@
   coolant_control.h - spindle control methods
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2012-2014 Sungeun K. Jeon
 
   Grbl is free software: you can redistribute it and/or modify
@@ -22,10 +23,6 @@
 #define coolant_control_h 
 
 #include <stdint.h>
-
-#define COOLANT_MIST_ENABLE 2
-#define COOLANT_FLOOD_ENABLE 1
-#define COOLANT_DISABLE 0 // Must be zero.
 
 
 void coolant_init(void);

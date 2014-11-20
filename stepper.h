@@ -35,22 +35,21 @@ void st_wake_up(void);
 // Immediately disables steppers
 void st_go_idle(void);
 
+// Generate the step and direction port invert masks.
+void st_generate_step_dir_invert_masks();
+
 // Reset the stepper subsystem variables       
 void st_reset(void);
              
-// Notify the stepper subsystem to start executing the g-code program in buffer.
-void st_cycle_start(void);
-
-// Reinitializes the buffer after a feed hold for a resume.
-void st_cycle_reinitialize(void); 
-
-// Initiates a feed hold of the running program
-void st_feed_hold(void);
-
 // Reloads step segment buffer. Called continuously by runtime execution system.
 void st_prep_buffer(void);
 
 // Called by planner_recalculate() when the executing block is updated by the new plan.
 void st_update_plan_block_parameters(void);
+
+// Called by runtime status reporting if realtime rate reporting is enabled in config.h.
+#ifdef REPORT_REALTIME_RATE
+float st_get_realtime_rate();
+#endif
 
 #endif

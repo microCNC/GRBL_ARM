@@ -2,6 +2,7 @@
   main.c - An embedded CNC Controller with rs274/ngc (g-code) support
   Part of Grbl
   
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2011-2014 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
@@ -20,7 +21,9 @@
 */
 
 #include "system.h"
+#include "fifo.h"
 #include "serial.h"
+#include "eeprom.h"
 #include "settings.h"
 #include "protocol.h"
 #include "gcode.h"
@@ -34,25 +37,21 @@
 #include "probe.h"
 #include "report.h"
 
-
 // Declare system global variable structure
-system_t sys; 
-
+system_t sys;
 
 int main(void)
 {
-	cli(); // Disable interrupts
-	
   // Initialize system upon power-up.
-  serial_init();   // Setup serial baud rate and interrupts
-  settings_init(); // Load grbl settings from EEPROM
-	timer_init(); 	 // Configure Timers ready for Steppers
-  stepper_init();  // Configure stepper pins and interrupt timers
-  system_init();   // Configure pinout pins and pin-change interrupt
-  
+  timer_init();		// Configure Timers ready for Steppers
+  serial_init();	// Setup serial baud rate and interrupts
+  settings_init();	// Load grbl settings from EEPROM
+  stepper_init();	// Configure stepper pins and interrupt timers
+  system_init();	// Configure pinout pins and pin-change interrupt
+	
   memset(&sys, 0, sizeof(sys));  // Clear all system variables
   sys.abort = true;   // Set abort to complete initialization
-	sei(); // Enable interrupts
+  __enable_irq(); // Enable interrupts
 
   // Check for power-up and set system alarm if homing is enabled to force homing cycle
   // by setting Grbl's alarm state. Alarm locks out all g-code commands, including the
@@ -65,11 +64,11 @@ int main(void)
     if (bit_istrue(settings.flags,BITFLAG_HOMING_ENABLE)) { sys.state = STATE_ALARM; }
   #endif
   
-	// Grbl initialization loop upon power-up or a system abort. For the latter, all processes
+  // Grbl initialization loop upon power-up or a system abort. For the latter, all processes
   // will return to this loop to be cleanly re-initialized.
   for(;;) {
   
-		// TODO: Separate configure task that require interrupts to be disabled, especially upon
+    // TODO: Separate configure task that require interrupts to be disabled, especially upon
     // a system abort and ensuring any active interrupts are cleanly reset.
 		
     // Reset Grbl primary systems.
@@ -78,9 +77,10 @@ int main(void)
     spindle_init();
     coolant_init();
     limits_init();
-		probe_init();		
+    probe_init();
     plan_reset(); // Clear block buffer and planner variables
     st_reset(); // Clear stepper subsystem variables.
+
 
     // Sync cleared gcode and planner positions to current system position.
     plan_sync_position();

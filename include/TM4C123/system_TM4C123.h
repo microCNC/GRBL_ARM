@@ -1,34 +1,26 @@
-/**************************************************************************//**
- * @file     system_LM4F.h
- * @brief    CMSIS Cortex-M4 Device Peripheral Access Layer Header File for
- *           TI Tiva TM4C123 Class Devices
- * @version  V3.1
- * @date     15. May 2013
- *
- * @note
- * Copyright (C) 2010-2011 ARM Limited. All rights reserved.
- *
- * @par
- * ARM Limited (ARM) is supplying this software for use with Cortex-M
- * processor based microcontrollers.  This file can be freely distributed
- * within development tools that are supporting such ARM based processors.
- *
- * @par
- * THIS SOFTWARE IS PROVIDED "AS IS".  NO WARRANTIES, WHETHER EXPRESS, IMPLIED
- * OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE.
- * ARM SHALL NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL, OR
- * CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
- *
- ******************************************************************************/
+/*
+  system_TM4C123.c - System file for TM4C123 Microcontrollers
+  Part of Grbl
+  
+  Copyright (c) 2014 Rob Brown
+
+  Grbl is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Grbl is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 
 #ifndef SYSTEM_TM4C123_H
 #define SYSTEM_TM4C123_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include <stdint.h>
 
@@ -56,9 +48,5 @@ extern void SystemInit (void);
  *         retrieved from cpu registers.
  */
 extern void SystemCoreClockUpdate (void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* SYSTEM_TM4C123_H */

@@ -1,88 +1,169 @@
-/**************************************************************************//**
- * @file     system_TM4C.c
- * @brief    CMSIS Device System Source File for
- *           Texas Instruments TIVA TM4C123 Device Series
- * @version  V1.00
- * @date     27. March 2013
- *
- * @note
- *                                                             modified by Keil
- ******************************************************************************/
+/*
+  system_TM4C123.c - System file for TM4C123 Microcontrollers
+  Part of Grbl
+  
+  Copyright (c) 2014 Rob Brown
+
+  Grbl is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  Grbl is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "system_TM4C123.h"
-#include "TM4C123GH6PM.h"
-#include "../CMSIS/Include/arm_math.h"
+#include "TM4C123.h"
+#include "../../system.h"
 
-/**
- * Initialize the system
- *
- * @param  none
- * @return none
- *
- * @brief  Setup the microcontroller system.
- *         Initialize the System.
- */
 void SystemInit (void)
 {
-
+	int i;
+	
   /* FPU settings ------------------------------------------------------------*/
-  #if (__FPU_USED == 1)
+  #if (__FPU_USED)
     SCB->CPACR |= ((3UL << 10*2) |                 /* set CP10 Full Access */
-                   (3UL << 11*2)  );               /* set CP11 Full Access */
+                   (3UL << 11*2));                 /* set CP11 Full Access */
   #endif
 
 	// SET SYSTEM CLOCK TO 80MHZ
 	
-#define SYSDIV2 6
+	SYSCTL->RCC = 0x78E3D50; // Clear MOSCDIS, set XTAL to 16MHz, set SYSDIV
 	
-#define SYSCTL_RIS_PLLLRIS      0x00000040  // PLL Lock Raw Interrupt Status
-#define SYSCTL_RCC_XTAL_M       0x000007C0  // Crystal Value
-#define SYSCTL_RCC_XTAL_6MHZ    0x000002C0  // 6 MHz Crystal
-#define SYSCTL_RCC_XTAL_8MHZ    0x00000380  // 8 MHz Crystal
-#define SYSCTL_RCC_XTAL_16MHZ   0x00000540  // 16 MHz Crystal
-#define SYSCTL_RCC2_USERCC2     0x80000000  // Use RCC2
-#define SYSCTL_RCC2_DIV400      0x40000000  // Divide PLL as 400 MHz vs. 200
-                                            // MHz
-#define SYSCTL_RCC2_SYSDIV2_M   0x1F800000  // System Clock Divisor 2
-#define SYSCTL_RCC2_SYSDIV2LSB  0x00400000  // Additional LSB for SYSDIV2
-#define SYSCTL_RCC2_PWRDN2      0x00002000  // Power-Down PLL 2
-#define SYSCTL_RCC2_BYPASS2     0x00000800  // PLL Bypass 2
-#define SYSCTL_RCC2_OSCSRC2_M   0x00000070  // Oscillator Source 2
-#define SYSCTL_RCC2_OSCSRC2_MO  0x00000000  // MOSC
+	// With USESYSDIV cleared and BYPASS set the board should be running at 16MHz (internal oscillator)
+  for (i = 0; i < 20572; i++)
+	{ float f = 999.99f / 333.33f; } // floating point divide should take 14 clock cycles ( 875ns@16MHz )
+	
+	SYSCTL->RCC &= ~(1<<4);	// Use Main Oscillator
+	SYSCTL->RCC2 = 0xC1004800;
+	SYSCTL->RCC |= (1<<22);
+	while (!(SYSCTL->RIS & 0x00000040)) {} // Wait for PLL to become ready.
+	SYSCTL->RCC2 &= ~(1<<11);	
+	while (!(SYSCTL->PLLSTAT)) {} // Ensure PLL is ready
 
-// configure the system to get its clock from the PLL
-  // 0) configure the system to use RCC2 for advanced features
-  //    such as 400 MHz PLL and non-integer System Clock Divisor
-  SYSCTL->RCC2 |= SYSCTL_RCC2_USERCC2;
-	
-  // 1) bypass PLL while initializing
-  SYSCTL->RCC2 |= SYSCTL_RCC2_BYPASS2;
-	
-  // 2) select the crystal value and oscillator source
-  SYSCTL->RCC &= ~SYSCTL_RCC_XTAL_M;													// clear XTAL field
-  SYSCTL->RCC += SYSCTL_RCC_XTAL_16MHZ;												// configure for 16 MHz crystal
-  SYSCTL->RCC2 &= ~SYSCTL_RCC2_OSCSRC2_M;											// clear oscillator source field
-  SYSCTL->RCC2 += SYSCTL_RCC2_OSCSRC2_MO;											// configure for main oscillator source
-	
-  // 3) activate PLL by clearing PWRDN
-  SYSCTL->RCC2 &= ~SYSCTL_RCC2_PWRDN2;
-	
-  // 4) set the desired system divider and the system divider least significant bit
-  SYSCTL->RCC2 |= SYSCTL_RCC2_DIV400;													// use 400 MHz PLL
-  SYSCTL->RCC2 = (SYSCTL->RCC2&~0x1FC00000) + (SYSDIV2<<22);	// clear system clock divider field configure for 80 MHz clock
-	
-  // 5) wait for the PLL to lock by polling PLLLRIS
-  while((SYSCTL->RIS&SYSCTL_RIS_PLLLRIS)==0){};
-		
-  // 6) enable use of PLL by clearing BYPASS
-  SYSCTL->RCC2 &= ~SYSCTL_RCC2_BYPASS2;
-		
 //
 // SETUP SYSTICK
 //
-	SysTick->CTRL = 0;                   			// disable SysTick during setup
+  SysTick->CTRL = 0;				// disable SysTick during setup
   SysTick->LOAD = SysTick_VAL_CURRENT_Msk;	// maximum reload value
-  SysTick->VAL = 0;													// any write to current clears it
-																						// enable SysTick with core clock
+  SysTick->VAL = 0;				// any write to current clears it
+						// enable SysTick with core clock
   SysTick->CTRL = SysTick_CTRL_ENABLE_Msk+SysTick_CTRL_CLKSOURCE_Msk;
+
+#ifdef TM4C123GH6PM
+  // SETUP GPIO
+  SYSCTL->RCGCGPIO |= 0xFF;			// enable all port clocks
+  while(!(SYSCTL->PRGPIO & 0xFF)) {};
+  
+  // SETUP WTIMERS
+	SYSCTL->RCGCWTIMER = SYSCTL->RCGCWTIMER | 0x0F; // Turn WTimer0,1,2,3 clocks on
+	while (!(SYSCTL->PRWTIMER & 0x0F)) {};
+	
+	// SETUP SERIAL PORT
+
+  //Calculate BAUD RATE
+  float baud_float = F_CPU / (16 * BAUD_RATE);
+  uint16_t baud_int = floor(baud_float);
+  uint8_t baud_frac = ((baud_float - baud_int) * 64 + 0.5f);  
+  
+  SYSCTL->RCGCUART |= 0x01;		// Enable UART0
+    while(!(SYSCTL->PRUART & 0x01)) {};
+	
+	GPIOA->AFSEL |= 0x03;				// Enable Special Functions
+	GPIOA->DEN |= 0x03;					// Enable Digital Pins		
+	GPIOA->AMSEL &= ~0x03;      // disable analog functionality on PA
+	GPIOA->PCTL = (GPIOA->PCTL&0xFFFFFF00)+0x00000011;
+			
+	UART0->CTL = 0x0310;  //Disable UART0, Enable RX & TX
+	
+	// Set Baud Rate to 115200
+	UART0->IBRD = baud_int; // IBRD = int(80,000,000 / (16 * 115,200)) = int(43.402777778)
+	UART0->FBRD = baud_frac; // FBRD = int(0.402777778 * 64 + 0.5) = 26
+	
+	UART0->LCRH = 0x70; // Enable, WLEN = 8, FIFO Enabled
+	UART0->IFLS = 0x24;
+	UART0->IM = 0x70; // Enable Recieve, Trasmit and Recieve Timeout Interrupts
+	UART0->CTL |= 0x01; //Enable UART0
+	
+	NVIC_SetPriority(UART0_IRQn, 6);  // set interrupt priority to 6
+	NVIC_EnableIRQ(UART0_IRQn);       // enable IRQ
+
+
+  // SETUP EEPROM
+  //(*((volatile unsigned long *)0x400FE140)) = (80-1)&0x000000FF;
+  
+  SYSCTL->RCGCEEPROM |= 0x01;		// Enable EEPROM
+  while(!(SYSCTL->PREEPROM & 0x01)) {};
+  while(EEPROM->EEDONE&0x01) {}; // Wait for WORKING BIT of EEDONE to become clear
+
+
+  GPIOF->DIR = 0x0E;
+  GPIOF->DEN = 0x0E;
+
+  GPIOF->DATA = ((GPIOF->DATA & ~0x0E)|0x06);
+
+#endif
+
+#ifdef TM4C123GH6PZ
+  SYSCTL->RCGCGPIO |= 0x3FF;			// enable all port clocks
+  while(!(SYSCTL->PRGPIO & 0x3FF)) {};
+
+  // SETUP WTIMERS
+	SYSCTL->RCGCWTIMER = SYSCTL->RCGCWTIMER | 0x0F; // Turn WTimer0,1,2,3 clocks on
+	while (!(SYSCTL->PRWTIMER & 0x0F)) {};
+	
+	// SETUP SERIAL PORT
+
+  //Calculate BAUD RATE
+  float baud_float = F_CPU / (16 * BAUD_RATE);
+  uint16_t baud_int = floor(baud_float);
+  uint8_t baud_frac = ((baud_float - baud_int) * 64 + 0.5f);  
+  
+  SYSCTL->RCGCUART |= 0x20;		// Enable UART0
+    while(!(SYSCTL->PRUART & 0x20)) {};
+	
+	GPIOE->DIR |= 0x20;				// Enable Special Functions
+	GPIOE->AFSEL |= 0x20;				// Enable Special Functions
+	GPIOE->DR8R |= 0x20;        // Set 8mA pin
+	GPIOE->DEN |= 0x20;					// Enable Digital Pins		
+	GPIOE->AMSEL &= ~0x20;      // disable analog functionality
+	GPIOE->PCTL = (GPIOE->PCTL&0xFFF0FFFF)+0x00010000;
+	
+	GPIOJ->DIR &= ~0x02;				// Enable Special Functions
+	GPIOJ->AFSEL |= 0x02;				// Enable Special Functions
+	GPIOJ->DR8R |= 0x02;        // Set 8mA pin
+	GPIOJ->DEN |= 0x02;					// Enable Digital Pins		
+	GPIOJ->AMSEL &= ~0x02;      // disable analog functionality
+	GPIOJ->PCTL = (GPIOJ->PCTL&0xFFFFFF0F)+0x00000010;
+			
+	UART5->CTL = 0x0310;  //Disable UART0, Enable RX & TX
+	
+	// Set Baud Rate to 115200
+	UART5->IBRD = baud_int; // IBRD = int(80,000,000 / (16 * 115,200)) = int(43.402777778)
+	UART5->FBRD = baud_frac; // FBRD = int(0.402777778 * 64 + 0.5) = 26
+	
+	UART5->LCRH = 0x70; // Enable, WLEN = 8, FIFO Enabled
+	UART5->IFLS = 0x10;
+	UART5->IM = 0x70; // Enable Recieve, Trasmit and Recieve Timeout Interrupts
+	UART5->CTL |= 0x01; //Enable UART0
+	
+	NVIC_SetPriority(UART5_IRQn, 6);  // set interrupt priority to 6
+	NVIC_EnableIRQ(UART5_IRQn);       // enable IRQ
+	
+	// SETUP EEPROM
+  //(*((volatile unsigned long *)0x400FE140)) = (80-1)&0x000000FF;
+  
+  SYSCTL->RCGCEEPROM |= 0x01;		// Enable EEPROM
+  while(!(SYSCTL->PREEPROM & 0x01)) {};
+  while(EEPROM->EEDONE&0x01) {}; // Wait for WORKING BIT of EEDONE to become clear
+  
+  
+#endif
 }
+

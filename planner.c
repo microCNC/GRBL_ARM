@@ -262,15 +262,19 @@ uint8_t plan_check_full_buffer()
    is used in three ways: as a normal feed rate if invert_feed_rate is false, as inverse time if
    invert_feed_rate is true, or as seek/rapids rate if the feed_rate value is negative (and
    invert_feed_rate always false). */
-void plan_buffer_line(float *target, float feed_rate, uint8_t invert_feed_rate, int32_t line_number) 
+#ifdef USE_LINE_NUMBERS   
+  void plan_buffer_line(float *target, float feed_rate, uint8_t invert_feed_rate, int32_t line_number) 
+#else
+  void plan_buffer_line(float *target, float feed_rate, uint8_t invert_feed_rate) 
+#endif
 {
-	int32_t target_steps[N_AXIS];
+  int32_t target_steps[N_AXIS];
   float unit_vec[N_AXIS], delta_mm;
   uint8_t idx;
 	
-	float inverse_unit_vec_value;
-	float inverse_millimeters;
-	float junction_cos_theta;
+  float inverse_unit_vec_value;
+  float inverse_millimeters;
+  float junction_cos_theta;
 	
   // Prepare and initialize new block
   plan_block_t *block = &block_buffer[block_buffer_head];
@@ -278,11 +282,10 @@ void plan_buffer_line(float *target, float feed_rate, uint8_t invert_feed_rate, 
   block->millimeters = 0;
   block->direction_bits = 0;
   block->acceleration = SOME_LARGE_VALUE; // Scaled down to maximum acceleration later
+  #ifdef USE_LINE_NUMBERS
+    block->line_number = line_number;
+  #endif
 
-#ifdef USE_LINE_NUMBERS
-  block->line_number = line_number;
-#endif
-	
   // Compute and store initial move distance data.
   // TODO: After this for-loop, we don't touch the stepper algorithm data. Might be a good idea
   // to try to keep these types of things completely separate from the planner for portability.
@@ -300,7 +303,7 @@ void plan_buffer_line(float *target, float feed_rate, uint8_t invert_feed_rate, 
     unit_vec[idx] = delta_mm; // Store unit vector numerator. Denominator computed later.
         
     // Set direction bits. Bit enabled always means direction is negative.
-    if (delta_mm < 0 ) { block->direction_bits |= get_direction_mask(idx); }
+    if (delta_mm < 0 ) { block->direction_bits |= get_direction_pin_mask(idx); }
     
     // Incrementally compute total move distance by Euclidean norm. First add square of each term.
     block->millimeters += delta_mm*delta_mm;
@@ -314,6 +317,7 @@ void plan_buffer_line(float *target, float feed_rate, uint8_t invert_feed_rate, 
   // TODO: Need to distinguish a rapids vs feed move for overrides. Some flag of some sort.
   if (feed_rate < 0) { feed_rate = SOME_LARGE_VALUE; } // Scaled down to absolute max/rapids rate later
   else if (invert_feed_rate) { feed_rate = block->millimeters/feed_rate; }
+  if (feed_rate < MINIMUM_FEED_RATE) { feed_rate = MINIMUM_FEED_RATE; } // Prevents step generation round-off condition.
 
   // Calculate the unit vector of the line move and the block maximum feed rate and acceleration scaled 
   // down such that no individual axes maximum values are exceeded with respect to the line direction. 
@@ -371,7 +375,8 @@ void plan_buffer_line(float *target, float feed_rate, uint8_t invert_feed_rate, 
     // NOTE: Computed without any expensive trig, sin() or acos(), by trig half angle identity of cos(theta).
     float sin_theta_d2 = sqrt(0.5f*(1.0f-junction_cos_theta)); // Trig half angle identity. Always positive.
 
-    // TODO: Acceleration used in calculation needs to be limited by the minimum of the two junctions. 
+    // TODO: Technically, the acceleration used in calculation needs to be limited by the minimum of the
+    // two junctions. However, this shouldn't be a significant problem except in extreme circumstances.
     block->max_junction_speed_sqr = max( MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED,
                                  (block->acceleration * settings.junction_deviation * sin_theta_d2)/(1.0f-sin_theta_d2) );
   }
@@ -406,6 +411,14 @@ void plan_sync_position()
   for (idx=0; idx<N_AXIS; idx++) {
     pl.position[idx] = sys.position[idx];
   }
+}
+
+
+// Returns the number of active blocks are in the planner buffer.
+uint8_t plan_get_block_buffer_count()
+{
+  if (block_buffer_head >= block_buffer_tail) { return(block_buffer_head-block_buffer_tail); }
+  return(BLOCK_BUFFER_SIZE - (block_buffer_tail-block_buffer_head));
 }
 
 

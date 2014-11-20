@@ -2,6 +2,7 @@
   config.h - compile time configuration
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2011-2014 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
@@ -27,6 +28,7 @@
 
 #ifndef config_h
 #define config_h
+#include "system.h"
 
 // Default settings. Used when resetting EEPROM. Change to desired name in defaults.h
 #define DEFAULTS_GENERIC
@@ -36,7 +38,8 @@
 
 // Default cpu mappings. Grbl officially supports the Arduino Uno only. Other processor types
 // may exist from user-supplied templates or directly user-defined in cpu_map.h
-#define CPU_MAP_TM4C123GH6PM // CPU
+#define CPU_MAP_TIVA_LAUNCHPAD // CPU
+//#define CPU_MAP_ELITE_M4F
 
 // Define runtime command special characters. These characters are 'picked-off' directly from the
 // serial read data stream and are not passed to the grbl line execution parser. Select characters
@@ -78,20 +81,46 @@
 // greater.
 #define N_HOMING_LOCATE_CYCLE 2 // Integer (1-128)
 
+// After homing, Grbl will set by default the entire machine space into negative space, as is typical
+// for professional CNC machines, regardless of where the limit switches are located. Uncomment this 
+// define to force Grbl to always set the machine origin at the homed location despite switch orientation.
+// #define HOMING_FORCE_SET_ORIGIN // Uncomment to enable.
+
 // Number of blocks Grbl executes upon startup. These blocks are stored in EEPROM, where the size
 // and addresses are defined in settings.h. With the current settings, up to 3 startup blocks may
 // be stored and executed in order. These startup blocks would typically be used to set the g-code
 // parser state depending on user preferences.
-#define N_STARTUP_LINE 2 // Integer (1-3)
+#define N_STARTUP_LINE 2 // Integer (1-2)
 
-// Allows GRBL to tranck and report gcode line numbers.  Enabling this means that the planning buffer
+// Number of floating decimal points printed by Grbl for certain value types. These settings are 
+// determined by realistic and commonly observed values in CNC machines. For example, position
+// values cannot be less than 0.001mm or 0.0001in, because machines can not be physically more
+// precise this. So, there is likely no need to change these, but you can if you need to here.
+// NOTE: Must be an integer value from 0 to ~4. More than 4 may exhibit round-off errors.
+#define N_DECIMAL_COORDVALUE_INCH 4 // Coordinate or position value in inches
+#define N_DECIMAL_COORDVALUE_MM   3 // Coordinate or position value in mm
+#define N_DECIMAL_RATEVALUE_INCH  1 // Rate or velocity value in in/min
+#define N_DECIMAL_RATEVALUE_MM    0 // Rate or velocity value in mm/min
+#define N_DECIMAL_SETTINGVALUE    3 // Decimals for floating point setting values
+
+// Allows GRBL to track and report gcode line numbers.  Enabling this means that the planning buffer
 // goes from 18 or 16 to make room for the additional line number data in the plan_block_t struct
-#define USE_LINE_NUMBERS
+// #define USE_LINE_NUMBERS // Disabled by default. Uncomment to enable.
 
+// Allows GRBL to report the real-time feed rate.  Enabling this means that GRBL will be reporting more 
+// data with each status update.
+// NOTE: This is experimental and doesn't quite work 100%. Maybe fixed or refactored later.
+// #define REPORT_REALTIME_RATE // Disabled by default. Uncomment to enable.
+
+// Upon a successful probe cycle, this option provides immediately feedback of the probe coordinates
+// through an automatically generated message. If disabled, users can still access the last probe
+// coordinates through Grbl '$#' print parameters.
+#define MESSAGE_PROBE_COORDINATES // Enabled by default. Comment to disable.
+ 
 // Enables a second coolant control pin via the mist coolant g-code command M7 on the Arduino Uno
 // analog pin 5. Only use this option if you require a second coolant control pin.
 // NOTE: The M8 flood coolant control pin on analog pin 4 will still be functional regardless.
-// #define ENABLE_M7 // Mist coolant disabled by default. See config.h to enable/disable.
+// #define ENABLE_M7 // Disabled by default. Uncomment to enable.
 
 // ---------------------------------------------------------------------------------------
 // ADVANCED CONFIGURATION OPTIONS:
@@ -111,6 +140,11 @@
 // noise and shake your machine. At even lower step frequencies, AMASS adapts and provides even better
 // step smoothing. See stepper.c for more details on the AMASS system works.
 #define ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING  // Default enabled. Comment to disable.
+
+// Sets which axis the tool length offset is applied. Assumes the spindle is always parallel with 
+// the selected axis with the tool oriented toward the negative direction. In other words, a positive
+// tool length offset value is subtracted from the current location.
+#define TOOL_LENGTH_OFFSET_AXIS Z_AXIS // Default z-axis. Valid values are X_AXIS, Y_AXIS, or Z_AXIS.
 
 // Enables variable spindle output voltage for different RPM values. On the Arduino Uno, the spindle
 // enable pin will output 5V for maximum RPM with 256 intermediate levels and 0V when disabled.
@@ -134,13 +168,16 @@
 // should not be much greater than zero or to the minimum value necessary for the machine to work.
 #define MINIMUM_JUNCTION_SPEED 0.0 // (mm/min)
 
+// Sets the minimum feed rate the planner will allow. Any value below it will be set to this minimum
+// value. This also ensures that a planned motion always completes and accounts for any floating-point
+// round-off errors. A lower value than 1.0 mm/min may work in some cases, but we don't recommend it.
+#define MINIMUM_FEED_RATE 1.0 // (mm/min)
+
 // Number of arc generation iterations by small angle approximation before exact arc trajectory 
-// correction. This parameter maybe decreased if there are issues with the accuracy of the arc
-// generations. In general, the default value is more than enough for the intended CNC applications
-// of grbl, and should be on the order or greater than the size of the buffer to help with the 
-// computational efficiency of generating arcs.
-// NOTE: Arcs are now generated by a chordal tolerance
-#define N_ARC_CORRECTION 20 // Integer (1-255)
+// correction with expensive sin() and cos() calcualtions. This parameter maybe decreased if there 
+// are issues with the accuracy of the arc generations, or increased if arc execution is getting
+// bogged down by too many trig calculations. 
+#define N_ARC_CORRECTION 12 // Integer (1-255)
 
 // Time delay increments performed during a dwell. The default value is set at 50ms, which provides
 // a maximum time delay of roughly 55 minutes, more than enough for most any application. Increasing
@@ -179,11 +216,11 @@
 // each of the startup blocks, as they are each stored as a string of this size. Make sure
 // to account for the available EEPROM at the defined memory address in settings.h and for
 // the number of desired startup blocks.
-// NOTE: 70 characters is not a problem except for extreme cases, but the line buffer size 
+// NOTE: 80 characters is not a problem except for extreme cases, but the line buffer size 
 // can be too small and g-code blocks can get truncated. Officially, the g-code standards 
 // support up to 256 characters. In future versions, this default will be increased, when 
 // we know how much extra memory space we can re-invest into this.
-// #define LINE_BUFFER_SIZE 70  // Uncomment to override default in protocol.h
+// #define LINE_BUFFER_SIZE 80  // Uncomment to override default in protocol.h
   
 // Serial send and receive buffer size. The receive buffer is often used as another streaming
 // buffer to store incoming blocks to be processed by Grbl when its ready. Most streaming
@@ -191,6 +228,7 @@
 // increase the receive buffer if a deeper receive buffer is needed for streaming and avaiable
 // memory allows. The send buffer primarily handles messages in Grbl. Only increase if large
 // messages are sent and Grbl begins to stall, waiting to send the rest of the message.
+// NOTE: Buffer size values must be greater than zero and less than 256.
 // #define RX_BUFFER_SIZE 128 // Uncomment to override defaults in serial.h
 // #define TX_BUFFER_SIZE 64
   
@@ -225,4 +263,6 @@
 // #endif
 
 // ---------------------------------------------------------------------------------------
+
+
 #endif

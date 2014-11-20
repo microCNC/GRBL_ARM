@@ -2,6 +2,7 @@
   serial.c - Low level functions for sending and recieving bytes via the serial port
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2011-2014 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
@@ -28,13 +29,29 @@
 #include <stdint.h>
 
 #ifndef RX_BUFFER_SIZE
-  #define RX_BUFFER_SIZE 128
+  #define RX_BUFFER_SIZE 255
 #endif
 #ifndef TX_BUFFER_SIZE
-  #define TX_BUFFER_SIZE 64
+  #define TX_BUFFER_SIZE 255
 #endif
 
 #define SERIAL_NO_DATA 0xff
+
+volatile struct
+{
+  uint8_t     m_getIdx;
+  uint8_t     m_putIdx;
+  uint8_t     m_size;
+  uint8_t     m_entry[RX_BUFFER_SIZE];
+} RX_Buf;
+
+volatile struct
+{
+  uint8_t     m_getIdx;
+  uint8_t     m_putIdx;
+  uint8_t     m_size;
+  uint8_t     m_entry[TX_BUFFER_SIZE];
+} TX_Buf;
 
 void serial_init(void);
 
@@ -44,5 +61,7 @@ uint8_t serial_read(void);
 
 // Reset and empty data in read buffer. Used by e-stop and reset.
 void serial_reset_read_buffer(void);
+
+uint8_t serial_get_rx_buffer_count(void);
 
 #endif

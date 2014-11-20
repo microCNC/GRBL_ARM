@@ -2,6 +2,7 @@
   system.h - Header for system level commands and real-time processes
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2014 Sungeun K. Jeon  
 
   Grbl is free software: you can redistribute it and/or modify
@@ -20,8 +21,6 @@
 
 #ifndef system_h
 #define system_h
-
-#define __USE_C99_MATH
 
 // Define system header files and standard libraries used by Grbl
 

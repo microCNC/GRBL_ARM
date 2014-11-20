@@ -2,6 +2,7 @@
   limits.h - code pertaining to limit-switches and performing the homing cycle
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2013-2014 Sungeun K. Jeon  
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 

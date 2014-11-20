@@ -2,6 +2,7 @@
   spindle_control.c - spindle control methods
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2012-2014 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
@@ -22,37 +23,36 @@
 #include "system.h"
 #include "spindle_control.h"
 #include "protocol.h"
+#include "gcode.h"
 
 
 void spindle_init()
 {  
-  // On the Uno, spindle enable and PWM are shared. Other CPUs have seperate enable pin.
-  #ifdef VARIABLE_SPINDLE
-    SPINDLE_PWM_DDR |= (1<<SPINDLE_PWM_BIT);
-    #ifndef CPU_MAP_ATMEGA328P 
-      SPINDLE_ENABLE_DDR |= (1<<SPINDLE_ENABLE_BIT); // Configure as output pin.
-    #endif     
-  #else
-    SPINDLE_ENABLE_DDR |= (1<<SPINDLE_ENABLE_BIT); // Configure as output pin.
-  #endif
 	
-  SPINDLE_DIRECTION_DDR |= (1<<SPINDLE_DIRECTION_BIT); // Configure as output pin.
+	SYSCTL->RCGCGPIO |= (1 << SPINDLE_ENABLE_IRQN);			// enable clock
+	while((SYSCTL->PRGPIO & (1 << SPINDLE_ENABLE_IRQN)) == 0) {};
+		
+	SPINDLE_ENABLE_PORT->DIR |= SPINDLE_ENABLE_MASK;			// make output pin
+	SPINDLE_ENABLE_PORT->AMSEL &= ~SPINDLE_ENABLE_MASK;		// disable analog
+  SPINDLE_ENABLE_PORT->AFSEL &= ~SPINDLE_ENABLE_MASK;		// disable alt funct
+  SPINDLE_ENABLE_PORT->DEN |= SPINDLE_ENABLE_MASK;			// make digital pin
 	
+	SYSCTL->RCGCGPIO |= (1 << SPINDLE_DIRECTION_IRQN);			// enable clock
+	while((SYSCTL->PRGPIO & (1 << SPINDLE_DIRECTION_IRQN)) == 0) {};
+		
+	SPINDLE_DIRECTION_PORT->DIR |= SPINDLE_DIRECTION_MASK;			// make output pin
+	SPINDLE_DIRECTION_PORT->AMSEL &= ~SPINDLE_DIRECTION_MASK;		// disable analog
+  SPINDLE_DIRECTION_PORT->AFSEL &= ~SPINDLE_DIRECTION_MASK;		// disable alt funct
+  SPINDLE_DIRECTION_PORT->DEN |= SPINDLE_DIRECTION_MASK;			// make digital pin
+
   spindle_stop();
 }
 
 
 void spindle_stop()
 {
-  // On the Uno, spindle enable and PWM are shared. Other CPUs have seperate enable pin.
-  #ifdef VARIABLE_SPINDLE
-    TCCRA_REGISTER &= ~(1<<COMB_BIT); // Disable PWM. Output voltage is zero.
-    #ifndef CPU_MAP_ATMEGA328P 
-      SPINDLE_ENABLE_PORT &= ~(1<<SPINDLE_ENABLE_BIT);
-    #endif
-  #else
-    SPINDLE_ENABLE_PORT &= ~(1<<SPINDLE_ENABLE_BIT);
-  #endif  
+    SPINDLE_ENABLE_PORT->DATA &= ~SPINDLE_ENABLE_MASK;
+
 }
 
 
@@ -69,9 +69,9 @@ void spindle_run(uint8_t direction, float rpm)
   } else {
   
     if (direction == SPINDLE_ENABLE_CW) {
-      SPINDLE_DIRECTION_PORT &= ~(1<<SPINDLE_DIRECTION_BIT);
+      SPINDLE_DIRECTION_PORT->DATA &= ~SPINDLE_DIRECTION_MASK;
     } else {
-      SPINDLE_DIRECTION_PORT |= (1<<SPINDLE_DIRECTION_BIT);
+      SPINDLE_DIRECTION_PORT->DATA |= SPINDLE_DIRECTION_MASK;
     }
 
     #ifdef VARIABLE_SPINDLE
@@ -84,10 +84,10 @@ void spindle_run(uint8_t direction, float rpm)
       OCR_REGISTER = current_pwm;
       
       #ifndef CPU_MAP_ATMEGA328P // On the Uno, spindle enable and PWM are shared.
-        SPINDLE_ENABLE_PORT |= (1<<SPINDLE_ENABLE_BIT);
+        SPINDLE_ENABLE_PORT->DATA |= SPINDLE_ENABLE_MASK;
       #endif
     #else   
-      SPINDLE_ENABLE_PORT |= (1<<SPINDLE_ENABLE_BIT);
+      SPINDLE_ENABLE_PORT->DATA |= SPINDLE_ENABLE_MASK;
     #endif
 
   }

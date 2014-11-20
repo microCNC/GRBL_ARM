@@ -1,5 +1,5 @@
 /*
-  timer.h - Header for system level commands and real-time processes
+  timer.h - Header for timers
   Part of Grbl
 
   Copyright (c) 2014 Rob Brown 
@@ -25,8 +25,9 @@
 
 void timer_init(void);
 
-// This is a one shot count down BLOCKING timer to create a delay in ms
-void one_shot_delay(uint32_t delay);
+void serial_set_timer(uint32_t delay); // delay in us
+void serial_start_timer(void);
+void serial_stop_timer(void);
 
 void set_stepper_timer(uint16_t prescaler, uint32_t hertz);
 void start_stepper_timer(void);

@@ -2,6 +2,7 @@
   probe.c - code pertaining to probing methods
   Part of Grbl
 
+  Copyright (c) 2014 Robert Brown
   Copyright (c) 2014 Sungeun K. Jeon
 
   Grbl is free software: you can redistribute it and/or modify
@@ -26,23 +27,20 @@
 void probe_init() 
 {
 	SYSCTL->RCGCGPIO |= (1 << PROBE_PORT_IRQN);			// enable clock
-	SYSCTL->GPIOHBCTL |= (1 << PROBE_PORT_IRQN);			// enable high performace bus
+	while(!(SYSCTL->PRGPIO & (1 << PROBE_PORT_IRQN))) {};
 	
-  PROBE_DDR &= ~(PROBE_MASK);				// Configure as input pins
+	PROBE_DDR &= ~(PROBE_MASK);				// Configure as input pins
 	PROBE_ENABLE |= PROBE_MASK;       // Enable digital pin
-  PROBE_PORT->PUR |= PROBE_MASK;		// Enable internal pull-up resistors. Normal high operation.
+	PROBE_PORT->PUR |= PROBE_MASK;		// Enable internal pull-up resistors. Normal high operation.
 	
-	//set interrupts
-  PROBE_PORT->IS  &= ~PROBE_MASK;        // make bit edge sensitive
-  PROBE_PORT->IBE &= ~PROBE_MASK;        // trigger is controlled by IEV
-  PROBE_PORT->IEV &= ~PROBE_MASK;        // Falling edge trigger
-  PROBE_PORT->ICR = PROBE_MASK;          // clear any prior interrupt
-  PROBE_PORT->IM  |= PROBE_MASK;         // set interrupt on ports
-	
-	NVIC_SetPriority(PINOUT_PORT_IRQN, 12);				// set interrupt priority to 6
-  NVIC_EnableIRQ(PINOUT_PORT_IRQN);							// enable IRQ
 }
 
+
+// Returns the probe pin state. Triggered = true. Called by gcode parser and probe state monitor.
+uint8_t probe_get_state()
+{
+  return(!(PROBE_PORT->DATA & PROBE_MASK));
+}
 
 // Monitors probe pin state and records the system position when detected. Called by the
 // stepper ISR per ISR tick.
@@ -50,10 +48,10 @@ void probe_init()
 void probe_state_monitor()
 {
   if (sys.probe_state == PROBE_ACTIVE) { 
-    if (!(PROBE_VALUE & PROBE_MASK)) {
+    if (probe_get_state()) {
       sys.probe_state = PROBE_OFF;
       memcpy(sys.probe_position, sys.position, sizeof(float)*N_AXIS);
-      sys.execute |= EXEC_FEED_HOLD;
+      bit_true(sys.execute, EXEC_FEED_HOLD);
     }
   }
 }
