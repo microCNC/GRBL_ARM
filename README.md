@@ -22,14 +22,15 @@ Floating Point Unit
 12bit ADC
 ```
 
-I am using KEIL MDK-ARM Lite ( free version ) to develop and flash to the board
+Arm GCC eabi to compile
+LM4Flash to flash to the board ( https://github.com/utzig/lm4tools/tree/master/lm4flash )
 
 ***
 TODO List.
 
 ```
-EEPROM
-Stepper Timers and outputs
+There is a bug that locks up the program after it has complete all the gcode sent to the board.
 Spindle PWM
+Limit Switches
 
 ```

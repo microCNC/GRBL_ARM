@@ -11,3 +11,7 @@
 *.dep
 *.uvopt
 *.bin
+GRBL.lnp
+GRBL.uvproj
+GRBL.uvproj
+GRBL.map
